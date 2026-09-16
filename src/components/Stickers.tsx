@@ -4,12 +4,17 @@ import type { Sticker } from '../types';
 
 /**
  * 본문 위에 얹는 이미지.
- * 미리보기에서 바로 끌어 옮기고, 오른쪽 아래 손잡이로 크기를 바꾼다.
+ * 미리보기에서 바로 끌어 옮기고, 오른쪽 아래 손잡이로 크기를,
+ * 위쪽 손잡이로 각도를 바꾼다.
  * 위치·크기는 결과물 너비 대비 % 라 확대·축소를 해도 흔들리지 않는다.
  */
 export function Stickers({ zoom }: { zoom: number }) {
   const { settings, set, selectedSticker, setSelectedSticker } = useStore();
-  const drag = useRef<{ mode: 'move' | 'resize'; x: number; y: number; start: Sticker } | null>(null);
+  const drag = useRef<
+    { mode: 'move' | 'resize'; x: number; y: number; start: Sticker }
+    | { mode: 'rotate'; cx: number; cy: number; base: number; start: Sticker }
+    | null
+  >(null);
 
   if (settings.stickers.length === 0) return null;
 
@@ -17,9 +22,23 @@ export function Stickers({ zoom }: { zoom: number }) {
     set('stickers', settings.stickers.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   };
 
+  /** 화면 좌표에서 중심을 향한 각도 (deg). 12시가 0. */
+  const angleTo = (cx: number, cy: number, x: number, y: number) =>
+    (Math.atan2(y - cy, x - cx) * 180) / Math.PI + 90;
+
   const onMove = (event: React.PointerEvent, sticker: Sticker) => {
     const state = drag.current;
     if (!state) return;
+
+    if (state.mode === 'rotate') {
+      const now = angleTo(state.cx, state.cy, event.clientX, event.clientY);
+      let next = state.start.rotation + (now - state.base);
+      // Shift 를 누르면 15도 단위로 맞춘다
+      if (event.shiftKey) next = Math.round(next / 15) * 15;
+      update(sticker.id, { rotation: Math.round(next * 10) / 10 });
+      return;
+    }
+
     const host = (event.currentTarget as HTMLElement).closest('.te-capture') as HTMLElement | null;
     if (!host) return;
 
@@ -82,6 +101,38 @@ export function Stickers({ zoom }: { zoom: number }) {
                 onPointerUp={(event) => {
                   drag.current = null;
                   (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
+                }}
+              />
+              <span
+                className="sticker-rotate"
+                data-export-ignore="true"
+                title="끌어서 각도 조절 (Shift: 15도 단위) · 더블클릭하면 0도"
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  // 회전은 이미지 중심을 기준으로 잰다 — 손잡이가 아니라 중심이 축이다.
+                  const box = (event.currentTarget as HTMLElement)
+                    .closest('.sticker')!.getBoundingClientRect();
+                  const cx = box.left + box.width / 2;
+                  const cy = box.top + box.height / 2;
+                  drag.current = {
+                    mode: 'rotate',
+                    cx,
+                    cy,
+                    base: angleTo(cx, cy, event.clientX, event.clientY),
+                    start: sticker,
+                  };
+                  (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+                }}
+                onPointerMove={(event) => { event.stopPropagation(); onMove(event, sticker); }}
+                onPointerUp={(event) => {
+                  drag.current = null;
+                  (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
+                }}
+                onPointerCancel={() => { drag.current = null; }}
+                onDoubleClick={(event) => {
+                  event.stopPropagation();
+                  update(sticker.id, { rotation: 0 });
                 }}
               />
             </>

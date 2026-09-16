@@ -91,7 +91,7 @@ export function BackgroundPanel() {
           ) : null}
           <ColorField label="여백 색" value={bg.color} onChange={(color) => patch('background', { color })} />
 
-          <Field label="이미지 위치">
+          <Field label="이미지 위치 · 크기">
             <div className="button-row">
               <button
                 type="button"
@@ -99,7 +99,7 @@ export function BackgroundPanel() {
                 disabled={!bg.imageUrl}
                 onClick={() => setAdjustingImage(!adjustingImage)}
               >
-                {adjustingImage ? '위치 조절 끝내기' : '드래그로 위치 조절'}
+                {adjustingImage ? '조절 끝내기' : '드래그로 위치·크기 조절'}
               </button>
               <button
                 type="button"
@@ -112,7 +112,11 @@ export function BackgroundPanel() {
             </div>
           </Field>
           {adjustingImage ? (
-            <Hint>미리보기를 드래그해 이미지를 옮기세요. 조절하는 동안에는 본문을 편집할 수 없습니다.</Hint>
+            <Hint>
+              미리보기를 <strong>드래그</strong>해 옮기고, <strong>휠</strong>을 굴려 크기를 바꾸세요.
+              휠을 굴리면 채우기가 <strong>직접 크기 지정</strong>으로 바뀝니다.
+              조절하는 동안에는 본문을 편집할 수 없습니다.
+            </Hint>
           ) : null}
           <NumberSlider label="가로 위치" value={Math.round(bg.imageX)} min={0} max={100} unit="%"
             onChange={(imageX) => patch('background', { imageX })} />

@@ -11,7 +11,12 @@ import { useStore } from '../../store';
 import { ButtonGroup, Field, FileButton, Hint, NumberSlider, Select } from '../ui';
 
 export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
-  const { settings, patch, set, setSelectedSticker } = useStore();
+  const { settings, patch, set, selectedSticker, setSelectedSticker } = useStore();
+  const pickedIndex = settings.stickers.findIndex((sticker) => sticker.id === selectedSticker);
+  const pickedSticker = pickedIndex >= 0 ? settings.stickers[pickedIndex] : null;
+  const updateSticker = (id: string, change: Partial<(typeof settings.stickers)[number]>) => {
+    set('stickers', settings.stickers.map((s) => (s.id === id ? { ...s, ...change } : s)));
+  };
   const t = settings.typography;
   const [breaks, setBreaks] = useState(0);
   const [fontError, setFontError] = useState('');
@@ -336,8 +341,41 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
           ))}
         </div>
       ) : null}
+      {/* 고른 스티커의 각도·크기·투명도는 손잡이로도 되지만, 숫자로 정확히 맞출 자리도 둔다 */}
+      {pickedSticker ? (
+        <>
+          <NumberSlider
+            label={`스티커 각도 (${pickedIndex + 1}번)`}
+            value={Math.round(pickedSticker.rotation)}
+            min={-180}
+            max={180}
+            unit="°"
+            hint="0 으로 두면 그대로"
+            onChange={(rotation) => updateSticker(pickedSticker.id, { rotation })}
+          />
+          <NumberSlider
+            label="스티커 크기"
+            value={Math.round(pickedSticker.width)}
+            min={3}
+            max={200}
+            unit="%"
+            onChange={(width) => updateSticker(pickedSticker.id, { width })}
+          />
+          <NumberSlider
+            label="스티커 투명도"
+            value={Math.round(pickedSticker.opacity * 100)}
+            min={0}
+            max={100}
+            unit="%"
+            onChange={(value) => updateSticker(pickedSticker.id, { opacity: value / 100 })}
+          />
+        </>
+      ) : null}
       {settings.stickers.length > 0 ? (
-        <Hint>스티커는 미리보기에서 바로 끌어 옮기고, 고른 뒤 오른쪽 아래 손잡이로 크기를 바꿉니다.</Hint>
+        <Hint>
+          스티커는 미리보기에서 바로 끌어 옮기고, 고른 뒤 오른쪽 아래 손잡이로 크기를,
+          위쪽 손잡이로 각도를 바꿉니다. (Shift 를 누르면 15도 단위, 더블클릭하면 0도)
+        </Hint>
       ) : null}
 
       <hr className="divider" />

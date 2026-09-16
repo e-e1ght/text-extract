@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { collapseBlankLines, markupRoles } from '../lib/parse';
 import { restoreCaret, saveCaret } from '../lib/caret';
-import { insertPlainText, rememberSelection, selectImage, syncInlineVars } from '../lib/format';
+import { bubbleAtSelection, insertPlainText, rememberSelection, selectImage, syncInlineVars } from '../lib/format';
 
 /**
  * 본문을 줄 단위 평문으로 읽는다.
@@ -129,6 +129,35 @@ export function Editor({
       aria-multiline="true"
       aria-label="본문"
       onInput={scheduleWork}
+      onKeyDown={(event) => {
+        /*
+         * 말풍선 안에서 Enter 를 누르면 말풍선 밖 새 줄로 빠져나온다.
+         * 그냥 두면 브라우저가 말풍선을 통째로 복제해 아래 줄까지 말풍선이 된다.
+         * 말풍선 안에서 줄을 바꾸려면 Shift+Enter 를 쓴다.
+         */
+        if (event.key !== 'Enter' || event.shiftKey || composingRef.current) return;
+        const root = rootRef.current;
+        if (!root) return;
+        const bubble = bubbleAtSelection(root);
+        if (!bubble) return;
+        event.preventDefault();
+
+        // 말풍선이 들어 있는 '줄'(에디터의 바로 아래 자식)을 찾아 그 뒤에 새 줄을 넣는다.
+        let line: Node = bubble;
+        while (line.parentNode && line.parentNode !== root) line = line.parentNode;
+        const next = document.createElement('div');
+        next.appendChild(document.createElement('br'));
+        root.insertBefore(next, line.nextSibling);
+
+        const range = document.createRange();
+        range.setStart(next, 0);
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        rememberSelection(root);
+        root.dispatchEvent(new Event('input', { bubbles: true }));
+      }}
       onKeyUp={() => { const root = rootRef.current; if (root) rememberSelection(root); }}
       onMouseUp={() => { const root = rootRef.current; if (root) rememberSelection(root); }}
       onClick={(event) => {

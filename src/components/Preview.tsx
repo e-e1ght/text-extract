@@ -15,9 +15,13 @@ function characterCss(settings: Settings): string {
     .map((character) => {
       const name = escapeAttr(character.name);
       const rules = [
-        `.te-capture [data-te-role="name"][data-te-speaker="${name}"],`
-        + `.te-capture .te-bubble[data-te-speaker="${name}"] .te-bubble-name`
-        + `{color:var(--te-ink,${character.color});}`,
+        `.te-capture [data-te-role="name"][data-te-speaker="${name}"]{color:var(--te-ink,${character.color});}`,
+        /*
+         * 말풍선 이름표는 우리가 붙인 이름표지 사용자가 쓴 글이 아니다.
+         * --te-ink(드래그로 준 색)를 끼워 두면 말풍선 안 글자색을 물려받아
+         * 캐릭터 이름 색이 먹지 않는다. 캐릭터 색을 그대로 쓴다.
+         */
+        `.te-capture .te-bubble[data-te-speaker="${name}"] .te-bubble-name{color:${character.color};}`,
       ];
       if (character.dialogueColor) {
         rules.push(
@@ -35,13 +39,18 @@ function characterCss(settings: Settings): string {
 
       // '내 쪽' 기본 모양이 먼저, 캐릭터가 따로 정한 색이 나중 — 뒤에 온 규칙이 이긴다.
       if (character.isMe) {
+        /*
+         * 내 쪽은 오른쪽에 붙으므로 이름줄도 통째로 좌우를 뒤집는다.
+         * (프로필)이름 이 아니라 이름(프로필) 이 되어야 오른쪽 끝이 가지런하다.
+         */
         rules.push(
           `.te-capture .te-bubble[data-te-speaker="${name}"]{align-items:flex-end;}`,
           `${dragBubble}{border-radius:var(--msg-radius) var(--msg-tail) var(--msg-radius) var(--msg-radius);`
           + `background:var(--msg-my-bubble);color:var(--te-ink,var(--msg-my-bubble-text));}`,
           `.te-capture.msg-profile .te-bubble[data-te-speaker="${name}"] .te-bubble-text`
           + `{margin-left:0;margin-right:calc(var(--msg-avatar) + 8px);}`,
-          `.te-capture .te-bubble[data-te-speaker="${name}"] .te-bubble-name{text-align:right;}`,
+          `.te-capture .te-bubble[data-te-speaker="${name}"] .te-bubble-name`
+          + `{flex-direction:row-reverse;}`,
         );
         if (theme === 'messenger') {
           /*
@@ -51,7 +60,9 @@ function characterCss(settings: Settings): string {
           rules.push(
             `${msgBubble}{margin-left:auto;margin-right:0;`
             + `border-top-left-radius:var(--msg-radius);border-top-right-radius:var(--msg-tail);}`,
-            `.messenger-mode [data-te-role="name"][data-te-speaker="${name}"]{text-align:right;}`,
+            // row-reverse 에서는 main-start 가 오른쪽이다 — flex-start 가 오른쪽 끝이다.
+            `.messenger-mode [data-te-role="name"][data-te-speaker="${name}"]`
+            + `{justify-content:flex-start;flex-direction:row-reverse;}`,
             `.messenger-mode.msg-profile [data-te-role="dialogue"][data-te-speaker="${name}"]`
             + `{margin-right:calc(var(--msg-avatar) + 8px);}`,
             `${msgBubble}{background:var(--msg-my-bubble);color:var(--te-ink,var(--msg-my-bubble-text));}`,
@@ -275,7 +286,22 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
         <div
           className="bg-drag"
           data-export-ignore="true"
-          title="드래그해서 배경 이미지 위치를 옮기세요"
+          title="드래그해서 위치를, 휠을 굴려 크기를 조절하세요"
+          onWheel={(event) => {
+            event.preventDefault();
+            /*
+             * 크기는 '직접 크기 지정' 일 때만 뜻이 있다.
+             * 꽉 채우기 상태에서 휠을 굴리면 그 자리에서 직접 지정으로 넘어간다
+             * (100% = 지금 보이는 너비라 크기가 튀지 않는다).
+             */
+            const custom = background.imageFit === 'custom';
+            const base = custom ? background.imageScale : 100;
+            const next = Math.min(400, Math.max(10, base * (event.deltaY > 0 ? 0.94 : 1.06)));
+            patch('background', {
+              imageFit: 'custom',
+              imageScale: Math.round(next),
+            });
+          }}
           onPointerDown={(event) => {
             const box = event.currentTarget.getBoundingClientRect();
             drag.current = { x: event.clientX, y: event.clientY, w: box.width, h: box.height };
@@ -300,7 +326,10 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
           }}
           onPointerCancel={() => { drag.current = null; }}
         >
-          <span className="bg-drag-badge">배경 위치 조절 중 — 드래그하세요</span>
+          <span className="bg-drag-badge">
+            배경 조절 중 — 드래그로 위치, 휠로 크기
+            {background.imageFit === 'custom' ? ` · ${Math.round(background.imageScale)}%` : ''}
+          </span>
         </div>
       ) : null}
       {background.overlayOpacity > 0 ? (
