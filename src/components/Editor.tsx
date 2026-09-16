@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { collapseBlankLines, markupRoles } from '../lib/parse';
 import { restoreCaret, saveCaret } from '../lib/caret';
-import { bubbleAtSelection, insertPlainText, rememberSelection, selectImage, syncInlineVars } from '../lib/format';
+import {
+  bubbleAtSelection, insertPlainText, rememberSelection, selectImage, selectionImage, syncInlineVars,
+} from '../lib/format';
 
 /**
  * 본문을 줄 단위 평문으로 읽는다.
@@ -103,6 +105,8 @@ export function Editor({
     root.innerHTML = initialContent.includes('<')
       ? initialContent
       : plainToHtml(tidyBlankLines ? collapseBlankLines(initialContent) : initialContent);
+    // 저장될 때 딸려 들어갔을 수 있는 선택 표시를 지운다 (화면 안내지 내용이 아니다)
+    root.querySelectorAll('.is-picked').forEach((el) => el.classList.remove('is-picked'));
     markupRoles(root);
     publish();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,6 +116,24 @@ export function Editor({
   useEffect(() => {
     if (autoParse) remark();
   }, [autoParse, remark]);
+
+  /*
+   * 고른 이미지의 파란 테두리는 '지금 골라 둔 것' 을 보여 주는 표시다.
+   * 클릭할 때만 지우면 다른 곳을 드래그해도 테두리가 남는다 — 선택이 바뀔 때마다 맞춘다.
+   */
+  useEffect(() => {
+    const sync = () => {
+      const root = rootRef.current;
+      if (!root) return;
+      const picked = selectionImage(root);
+      root.querySelectorAll<HTMLElement>('.te-img.is-picked').forEach((el) => {
+        if (el !== picked) el.classList.remove('is-picked');
+      });
+      picked?.classList.add('is-picked');
+    };
+    document.addEventListener('selectionchange', sync);
+    return () => document.removeEventListener('selectionchange', sync);
+  }, []);
 
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
 

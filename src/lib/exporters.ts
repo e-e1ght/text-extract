@@ -60,6 +60,12 @@ async function waitForImages(node: HTMLElement): Promise<void> {
 
 async function withPreparedNode<T>(node: HTMLElement, run: () => Promise<T>): Promise<T> {
   const restore = freezeVideos(node);
+  /*
+   * 고른 이미지의 파란 테두리는 화면 안내지 결과물이 아니다.
+   * outline 이 이미지 자신에게 붙어 있어 exportFilter 로는 못 거른다 — 잠깐 떼어 둔다.
+   */
+  const picked = Array.from(node.querySelectorAll<HTMLElement>('.is-picked'));
+  picked.forEach((el) => el.classList.remove('is-picked'));
   try {
     // 웹폰트·이미지가 준비되기 전에 캡처하면 글꼴이 바뀌거나 이미지가 빠진 채로 저장된다.
     if (document.fonts?.ready) await document.fonts.ready;
@@ -73,6 +79,7 @@ async function withPreparedNode<T>(node: HTMLElement, run: () => Promise<T>): Pr
 
     return await run();
   } finally {
+    picked.forEach((el) => el.classList.add('is-picked'));
     restore();
   }
 }

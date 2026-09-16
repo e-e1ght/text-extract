@@ -807,12 +807,18 @@ body {
   gap: 5px;
 }
 .popup-main, .popup-sub { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; }
+/*
+ * 줄 끝에 걸린 항목이 쪼그라들며 글자가 세로로 쌓이던 문제.
+ * 좁으면 줄여서 끼우지 말고 다음 줄로 넘기게 한다.
+ */
+.popup-main > *, .popup-sub > *, .popup-row > * { flex: 0 0 auto; }
 .popup-sub { padding-top: 5px; border-top: 1px solid var(--ui-popup-sub-line); }
 .popup-btn {
   min-width: 28px;
   height: 28px;
   padding: 0 7px;
   font-size: 12px;
+  white-space: nowrap;
   color: var(--ui-text);
   background: transparent;
   border: none;
@@ -856,7 +862,7 @@ body {
   border: 1px solid var(--ui-popup-divider);
   border-radius: 6px;
 }
-.popup-inline-input { display: inline-flex; align-items: center; gap: 3px; }
+.popup-inline-input { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
 .popup-inline-input input {
   width: 54px;
   padding: 3px 6px;
