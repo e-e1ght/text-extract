@@ -15,7 +15,9 @@ function characterCss(settings: Settings): string {
     .map((character) => {
       const name = escapeAttr(character.name);
       const rules = [
-        `.te-capture [data-te-role="name"][data-te-speaker="${name}"]{color:var(--te-ink,${character.color});}`,
+        `.te-capture [data-te-role="name"][data-te-speaker="${name}"],`
+        + `.te-capture .te-bubble[data-te-speaker="${name}"] .te-bubble-name`
+        + `{color:var(--te-ink,${character.color});}`,
       ];
       if (character.dialogueColor) {
         rules.push(
@@ -23,45 +25,55 @@ function characterCss(settings: Settings): string {
         );
       }
 
-      if (theme === 'messenger') {
-        if (character.bubbleColor) {
-          rules.push(
-            `.messenger-mode [data-te-role="dialogue"][data-te-speaker="${name}"]{background:${character.bubbleColor};}`,
-          );
-        }
-        if (character.bubbleTextColor) {
-          rules.push(
-            `.messenger-mode [data-te-role="dialogue"][data-te-speaker="${name}"]{color:var(--te-ink,${character.bubbleTextColor});}`,
-          );
-        }
-        if (character.avatar) {
-          rules.push(
-            `.messenger-mode [data-te-role="name"][data-te-speaker="${name}"]::before{background-image:url("${character.avatar}");}`,
-          );
-        }
-        if (character.isMe) {
+      /*
+       * 말풍선 색은 메신저의 대사와 드래그 말풍선 두 곳에 똑같이 건다.
+       * 드래그 말풍선은 기본 테마에서도 말풍선이므로 테마를 가리지 않는다.
+       */
+      const msgBubble = `.messenger-mode [data-te-role="dialogue"][data-te-speaker="${name}"]`;
+      const dragBubble = `.te-capture .te-bubble[data-te-speaker="${name}"] .te-bubble-text`;
+      const bubbles = theme === 'messenger' ? [msgBubble, dragBubble] : [dragBubble];
+
+      // '내 쪽' 기본 모양이 먼저, 캐릭터가 따로 정한 색이 나중 — 뒤에 온 규칙이 이긴다.
+      if (character.isMe) {
+        rules.push(
+          `.te-capture .te-bubble[data-te-speaker="${name}"]{align-items:flex-end;}`,
+          `${dragBubble}{border-radius:var(--msg-radius) var(--msg-tail) var(--msg-radius) var(--msg-radius);`
+          + `background:var(--msg-my-bubble);color:var(--te-ink,var(--msg-my-bubble-text));}`,
+          `.te-capture.msg-profile .te-bubble[data-te-speaker="${name}"] .te-bubble-text`
+          + `{margin-left:0;margin-right:calc(var(--msg-avatar) + 8px);}`,
+          `.te-capture .te-bubble[data-te-speaker="${name}"] .te-bubble-name{text-align:right;}`,
+        );
+        if (theme === 'messenger') {
           /*
            * 줄 전체를 text-align 으로 밀면 말풍선 아래 딸린 글까지 오른쪽으로 간다.
            * 말풍선과 이름만 옮기도록 각각에 건다.
            */
           rules.push(
-            `.messenger-mode [data-te-role="dialogue"][data-te-speaker="${name}"]`
-            + `{margin-left:auto;margin-right:0;`
+            `${msgBubble}{margin-left:auto;margin-right:0;`
             + `border-top-left-radius:var(--msg-radius);border-top-right-radius:var(--msg-tail);}`,
             `.messenger-mode [data-te-role="name"][data-te-speaker="${name}"]{text-align:right;}`,
             `.messenger-mode.msg-profile [data-te-role="dialogue"][data-te-speaker="${name}"]`
             + `{margin-right:calc(var(--msg-avatar) + 8px);}`,
+            `${msgBubble}{background:var(--msg-my-bubble);color:var(--te-ink,var(--msg-my-bubble-text));}`,
           );
-          if (!character.bubbleColor) {
-            rules.push(
-              `.messenger-mode [data-te-role="dialogue"][data-te-speaker="${name}"]{background:${settings.messenger.myBubbleColor};}`,
-            );
-          }
-          if (!character.bubbleTextColor) {
-            rules.push(
-              `.messenger-mode [data-te-role="dialogue"][data-te-speaker="${name}"]{color:var(--te-ink,${settings.messenger.myBubbleTextColor});}`,
-            );
-          }
+        }
+      }
+      if (character.bubbleColor) {
+        rules.push(`${bubbles.join(',')}{background:${character.bubbleColor};}`);
+      }
+      if (character.bubbleTextColor) {
+        rules.push(`${bubbles.join(',')}{color:var(--te-ink,${character.bubbleTextColor});}`);
+      }
+      if (character.avatar) {
+        rules.push(
+          `.te-capture .te-bubble[data-te-speaker="${name}"] .te-bubble-name::before`
+          + `{background-image:url("${character.avatar}");}`,
+        );
+        if (theme === 'messenger') {
+          rules.push(
+            `.messenger-mode [data-te-role="name"][data-te-speaker="${name}"]::before`
+            + `{background-image:url("${character.avatar}");}`,
+          );
         }
       }
       return rules.join('');
@@ -251,8 +263,9 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
         settings.hideEmphasisMarks ? 'hide-marks' : '',
         settings.theme === 'messenger' ? 'messenger-mode' : '',
         settings.theme === 'messenger' ? `msg-narration-${settings.messenger.narrationStyle}` : '',
-        settings.theme === 'messenger' && settings.messenger.showProfile ? 'msg-profile' : '',
-        settings.theme === 'messenger' && settings.messenger.showName ? 'msg-name' : '',
+        // 이름·프로필 표시 여부는 드래그 말풍선도 따르므로 테마를 가리지 않는다
+        settings.messenger.showProfile ? 'msg-profile' : '',
+        settings.messenger.showName ? 'msg-name' : '',
       ].filter(Boolean).join(' ')}
       style={frameStyle}
     >

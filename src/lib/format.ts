@@ -218,26 +218,24 @@ export function alignImage(image: HTMLImageElement, align: ImageAlign): void {
 /**
  * 드래그한 글을 말풍선으로 바꾼다.
  * 등록된 캐릭터면 이름과 프로필을 함께 보여주고, 아니면 말풍선만 남긴다.
+ *
+ * 겉모양은 여기서 정하지 않는다. `data-te-speaker` 만 달아 두면 메신저 대사와
+ * 똑같은 규칙(말풍선 색·모서리·최대 폭, 캐릭터별 색)이 그대로 걸린다.
+ * 그래야 드래그 말풍선도 말풍선 패널에서 함께 조절된다.
  */
-export function applyBubble(
-  speaker: string,
-  look: { bubbleColor: string; textColor: string; nameColor: string; avatar: string; isMe: boolean } | null,
-): void {
+export function applyBubble(speaker: string, registered: boolean): void {
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
   const range = sel.getRangeAt(0);
 
   const wrap = document.createElement('div');
-  wrap.className = `te-bubble${look ? '' : ' no-speaker'}${look?.isMe ? ' is-me' : ''}`;
-  if (speaker) wrap.dataset.teBubbleSpeaker = speaker;
-  if (look) {
-    if (look.bubbleColor) wrap.style.setProperty('--b-bg', look.bubbleColor);
-    if (look.textColor) wrap.style.setProperty('--b-fg', look.textColor);
-    if (look.nameColor) wrap.style.setProperty('--b-name', look.nameColor);
-    if (look.avatar) wrap.style.setProperty('--b-avatar', `url("${look.avatar}")`);
+  wrap.className = 'te-bubble';
+  if (speaker) {
+    wrap.dataset.teBubbleSpeaker = speaker;
+    wrap.dataset.teSpeaker = speaker;
   }
 
-  if (look && speaker) {
+  if (registered && speaker) {
     const name = document.createElement('span');
     name.className = 'te-bubble-name';
     name.contentEditable = 'false';

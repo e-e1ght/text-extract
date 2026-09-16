@@ -12,17 +12,17 @@ export function ThemePanel({ detectedNames }: { detectedNames: string[] }) {
 
       <hr className="divider" />
 
-      {settings.theme !== 'messenger' ? (
-        <Hint>
-          상단 막대에서 <strong>메신저</strong> 테마를 켜면 본문의 대사가 말풍선으로 바뀌고,
-          캐릭터 프로필이 함께 표시됩니다.
-        </Hint>
-      ) : (
-        <>
-          <Hint>
-            메신저 테마에서는 본문을 직접 고칠 수 없습니다. 내용을 수정하려면 기본 테마로 돌아가세요.
-            말풍선 색과 프로필은 <strong>색상 / 캐릭터</strong> 패널에서 캐릭터별로 지정합니다.
-          </Hint>
+      {/*
+        말풍선 모양은 두 테마가 함께 씁니다.
+        메신저는 대사를 통째로 말풍선으로 바꾸고, 기본 테마에서는 드래그해서 만든
+        말풍선이 같은 모양을 따릅니다. 그래서 테마와 상관없이 늘 열어 둡니다.
+      */}
+      <div className="panel-head"><span>말풍선</span></div>
+      <Hint>
+        상단 막대의 <strong>메신저</strong> 테마에서는 모든 대사가 말풍선이 되고,
+        <strong>기본</strong> 테마에서는 드래그한 글을 말풍선으로 만들 수 있습니다.
+        아래 값은 두 경우 모두에 적용됩니다.
+      </Hint>
           <ColorField label="말풍선 색" value={messenger.bubbleColor}
             onChange={(bubbleColor) => patch('messenger', { bubbleColor })} />
           <ColorField label="말풍선 글자색" value={messenger.bubbleTextColor}
@@ -45,18 +45,20 @@ export function ThemePanel({ detectedNames }: { detectedNames: string[] }) {
             onChange={(showName) => patch('messenger', { showName })} />
           <NumberSlider label="이름 크기" value={messenger.nameSize} min={8} max={24}
             onChange={(nameSize) => patch('messenger', { nameSize })} />
-          <ButtonGroup
-            label="서술 처리"
-            value={messenger.narrationStyle}
-            options={[
-              { label: '그대로', value: 'plain' as const },
-              { label: '흐리게', value: 'muted' as const },
-              { label: '숨김', value: 'hidden' as const },
-            ]}
-            onChange={(narrationStyle) => patch('messenger', { narrationStyle })}
-          />
-        </>
-      )}
+
+      {/* 서술을 흐리게·숨기는 건 대사만 남기는 메신저에서만 쓸모가 있다 */}
+      {settings.theme === 'messenger' ? (
+        <ButtonGroup
+          label="서술 처리"
+          value={messenger.narrationStyle}
+          options={[
+            { label: '그대로', value: 'plain' as const },
+            { label: '흐리게', value: 'muted' as const },
+            { label: '숨김', value: 'hidden' as const },
+          ]}
+          onChange={(narrationStyle) => patch('messenger', { narrationStyle })}
+        />
+      ) : null}
     </>
   );
 }

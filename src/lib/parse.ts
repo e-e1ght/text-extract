@@ -270,6 +270,12 @@ export function markupRoles(root: HTMLElement): void {
       span.dataset.teRole = piece.role;
       if (piece.speaker) span.dataset.teSpeaker = piece.speaker;
       if (piece.role === 'dialogue' && carriedOver && first) span.dataset.teCont = 'true';
+      /*
+       * `이름: "대사"` 의 콜론과 따옴표 사이 빈칸도 조각이 된다.
+       * 메신저에서는 이름과 말풍선이 각각 블록이라, 이 빈칸 하나가 사이에 끼어
+       * 제 몫의 줄을 차지한다(행간만큼 벌어진다). 표시해 두고 CSS 로 감춘다.
+       */
+      if (piece.text.trim() === '') span.dataset.teBlank = 'true';
       first = false;
 
       // `이름:` 의 구분 기호와 대사의 따옴표는 따로 감싼다.

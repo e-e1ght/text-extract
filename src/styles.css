@@ -545,40 +545,62 @@ body {
   touch-action: none;
 }
 
-/* 본문 속 말풍선 */
+/*
+ * 본문 속 말풍선 (드래그로 만든 것)
+ *
+ * 메신저의 대사 말풍선과 같은 값(--msg-*)을 씁니다. 서식을 둘로 나눠 두면
+ * 드래그 말풍선만 조절이 안 되고, 메신저에서 말풍선 안에 말풍선이 겹칩니다.
+ */
 .te-bubble {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 3px;
-  margin: 8px 0;
+  gap: 2px;
+  margin: var(--msg-gap) 0;
   text-indent: 0;
 }
+/* 좌우는 캐릭터 규칙이 정한다. 아래는 예전에 만들어 둔 말풍선을 위한 것 */
 .te-bubble.is-me { align-items: flex-end; }
 .te-bubble-name {
-  font-size: 0.8em;
-  font-weight: 600;
-  color: var(--b-name, var(--te-name));
+  font-size: var(--msg-name-size);
+  font-weight: 500;
+  line-height: 1.6;
+  color: var(--te-name);
 }
 .te-bubble-text {
   display: inline-block;
-  max-width: 80%;
-  padding: 9px 13px;
-  border-radius: 14px;
-  background: var(--b-bg, #ffffff);
-  color: var(--b-fg, #2b2b33);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  max-width: var(--msg-max);
+  padding: 11px 16px;
+  border-radius: var(--msg-tail) var(--msg-radius) var(--msg-radius) var(--msg-radius);
+  background: var(--msg-bubble);
+  color: var(--te-ink, var(--msg-bubble-text));
+  text-align: left;
 }
-/* 프로필 사진이 있으면 이름 앞에 동그랗게 붙인다 */
-.te-bubble[style*='--b-avatar'] .te-bubble-name::before {
+.te-bubble.is-me .te-bubble-text {
+  border-radius: var(--msg-radius) var(--msg-tail) var(--msg-radius) var(--msg-radius);
+}
+/* 이름·프로필은 메신저 설정의 표시 여부를 함께 따른다 */
+.te-capture:not(.msg-name) .te-bubble-name { display: none; }
+.te-capture:not(.msg-profile) .te-bubble-name::before { display: none; }
+/* 프로필 사진이 있으면 이름 앞에 동그랗게 붙인다 (그림은 캐릭터 규칙이 넣는다) */
+.te-bubble[data-te-speaker] .te-bubble-name::before {
   content: '';
   display: inline-block;
-  width: 1.5em;
-  height: 1.5em;
-  margin-right: 5px;
-  vertical-align: -0.45em;
+  width: var(--msg-avatar);
+  height: var(--msg-avatar);
+  margin-right: 8px;
+  vertical-align: middle;
   border-radius: 40%;
-  background: var(--b-avatar) center/cover no-repeat;
+  /* 그림이 없으면 이름 색 동그라미 — 메신저의 프로필 자리와 같게 */
+  background: currentColor center/cover no-repeat;
+}
+/* 프로필이 붙는 만큼 말풍선을 들여 이름 아래에 오게 한다 */
+.te-capture.msg-profile .te-bubble[data-te-speaker] .te-bubble-text {
+  margin-left: calc(var(--msg-avatar) + 8px);
+}
+.te-capture.msg-profile .te-bubble.is-me[data-te-speaker] .te-bubble-text {
+  margin-left: 0;
+  margin-right: calc(var(--msg-avatar) + 8px);
 }
 
 /* ------------------------------------------------------------------ */
@@ -588,8 +610,36 @@ body {
 /* ------------------------------------------------------------------ */
 
 /* 간격은 말풍선이 들어 있는 줄에만 준다 — 일반 문단 간격까지 건드리지 않도록 */
-.messenger-mode .editor > *:has([data-te-role="dialogue"]) { margin-top: var(--msg-gap); }
+.messenger-mode .editor > *:has([data-te-role="dialogue"]),
+.messenger-mode .editor > *:has(.te-bubble) { margin-top: var(--msg-gap); }
 .messenger-mode .editor > *:first-child { margin-top: 0; }
+
+/*
+ * `이름: "대사"` 의 콜론과 따옴표 사이 빈칸.
+ * 이름과 말풍선이 각각 블록이라, 이 빈칸 하나가 사이에 끼어 제 줄을 차지한다.
+ * (행간만큼 벌어져 이름과 말풍선이 멀어 보였다.)
+ */
+.messenger-mode .te-narration[data-te-blank] { display: none; }
+
+/*
+ * 드래그로 만든 말풍선과 메신저의 대사 말풍선이 겹치는 자리.
+ * 대사를 통째로 드래그하면 대사 span 이 말풍선을 품고, 반대로 말풍선 안에
+ * 대사가 들어오기도 한다. 어느 쪽이든 겉모양은 한 겹만 남긴다.
+ */
+.messenger-mode .te-bubble .te-dialogue,
+.messenger-mode .te-dialogue:has(.te-bubble) {
+  display: inline;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+}
+/* 줄에 이미 이름이 있으면 말풍선이 달고 온 이름은 겹치므로 감춘다 */
+.messenger-mode .te-bubble .te-name,
+.messenger-mode .te-dialogue .te-bubble-name { display: none; }
 
 .messenger-mode .te-dialogue {
   display: block;

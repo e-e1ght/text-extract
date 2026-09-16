@@ -151,19 +151,8 @@ export function SelectionPopup({
       sel?.addRange(range);
       lastRange.current = range.cloneRange();
     }
-    const character = settings.characters[bubbleSpeaker];
-    applyBubble(
-      bubbleSpeaker,
-      character
-        ? {
-            bubbleColor: character.bubbleColor || settings.messenger.bubbleColor,
-            textColor: character.bubbleTextColor || settings.messenger.bubbleTextColor,
-            nameColor: character.color,
-            avatar: character.avatar,
-            isMe: character.isMe,
-          }
-        : null,
-    );
+    // 색·프로필·좌우는 CSS 가 캐릭터 이름을 보고 붙인다 — 여기서는 이름만 넘긴다.
+    applyBubble(bubbleSpeaker, Boolean(settings.characters[bubbleSpeaker]));
     setPanel('none');
   };
 
