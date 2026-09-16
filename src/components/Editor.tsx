@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { collapseBlankLines, markupRoles } from '../lib/parse';
 import { restoreCaret, saveCaret } from '../lib/caret';
+import { ensureWebFont } from '../lib/webfonts';
 import {
-  bubbleAtSelection, insertPlainText, rememberSelection, selectImage, selectionImage, syncInlineVars,
+  insertPlainText, rememberSelection, selectImage, selectionImage, splitLineAtCaret,
+  syncInlineVars, unwrapLegacyBubbles,
 } from '../lib/format';
 
 /**
@@ -107,6 +109,11 @@ export function Editor({
       : plainToHtml(tidyBlankLines ? collapseBlankLines(initialContent) : initialContent);
     // 저장될 때 딸려 들어갔을 수 있는 선택 표시를 지운다 (화면 안내지 내용이 아니다)
     root.querySelectorAll('.is-picked').forEach((el) => el.classList.remove('is-picked'));
+    // 예전에 드래그로 만들어 둔 말풍선은 평범한 줄로 되돌린다
+    unwrapLegacyBubbles(root);
+    // 드래그로 글꼴을 준 자리가 있으면 그 글꼴을 받아 온다 (이제 고른 것만 받는다)
+    root.querySelectorAll<HTMLElement>('[style*="font-family"]')
+      .forEach((el) => ensureWebFont(el.style.fontFamily));
     markupRoles(root);
     publish();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -153,30 +160,24 @@ export function Editor({
       onInput={scheduleWork}
       onKeyDown={(event) => {
         /*
-         * 말풍선 안에서 Enter 를 누르면 말풍선 밖 새 줄로 빠져나온다.
-         * 그냥 두면 브라우저가 말풍선을 통째로 복제해 아래 줄까지 말풍선이 된다.
-         * 말풍선 안에서 줄을 바꾸려면 Shift+Enter 를 쓴다.
+         * 메신저에서는 대사 span 이 block 이라, 줄(div) 안에 블록이 들어앉는다.
+         * 이 상태에서 브라우저는 Enter 로 문단을 나누지 못하고 그냥 무시한다
+         * (엔터를 쳐도 아무 일이 없거나 되돌아간 것처럼 보였다).
+         * 그래서 메신저에서는 줄을 우리가 직접 나눈다.
          */
         if (event.key !== 'Enter' || event.shiftKey || composingRef.current) return;
         const root = rootRef.current;
-        if (!root) return;
-        const bubble = bubbleAtSelection(root);
-        if (!bubble) return;
+        if (!root || !root.closest('.messenger-mode')) return;
+        const split = splitLineAtCaret(root);
+        if (!split) return;
         event.preventDefault();
 
-        // 말풍선이 들어 있는 '줄'(에디터의 바로 아래 자식)을 찾아 그 뒤에 새 줄을 넣는다.
-        let line: Node = bubble;
-        while (line.parentNode && line.parentNode !== root) line = line.parentNode;
-        const next = document.createElement('div');
-        next.appendChild(document.createElement('br'));
-        root.insertBefore(next, line.nextSibling);
-
-        const range = document.createRange();
-        range.setStart(next, 0);
-        range.collapse(true);
+        const caret = document.createRange();
+        caret.setStart(split.tail, 0);
+        caret.collapse(true);
         const sel = window.getSelection();
         sel?.removeAllRanges();
-        sel?.addRange(range);
+        sel?.addRange(caret);
         rememberSelection(root);
         root.dispatchEvent(new Event('input', { bubbles: true }));
       }}
@@ -206,7 +207,7 @@ export function Editor({
       onPaste={(event) => {
         event.preventDefault();
         const pasted = event.clipboardData.getData('text/plain');
-        insertPlainText(tidyBlankLines ? collapseBlankLines(pasted) : pasted);
+        insertPlainText(rootRef.current, tidyBlankLines ? collapseBlankLines(pasted) : pasted);
         window.clearTimeout(timerRef.current);
         if (autoParse) remark();
         publish();

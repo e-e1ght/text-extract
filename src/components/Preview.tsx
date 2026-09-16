@@ -1,5 +1,6 @@
-import { useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
 import { useStore } from '../store';
+import { ensureWebFont } from '../lib/webfonts';
 import type { Settings } from '../types';
 
 function escapeAttr(value: string): string {
@@ -16,12 +17,6 @@ function characterCss(settings: Settings): string {
       const name = escapeAttr(character.name);
       const rules = [
         `.te-capture [data-te-role="name"][data-te-speaker="${name}"]{color:var(--te-ink,${character.color});}`,
-        /*
-         * 말풍선 이름표는 우리가 붙인 이름표지 사용자가 쓴 글이 아니다.
-         * --te-ink(드래그로 준 색)를 끼워 두면 말풍선 안 글자색을 물려받아
-         * 캐릭터 이름 색이 먹지 않는다. 캐릭터 색을 그대로 쓴다.
-         */
-        `.te-capture .te-bubble[data-te-speaker="${name}"] .te-bubble-name{color:${character.color};}`,
       ];
       if (character.dialogueColor) {
         rules.push(
@@ -29,38 +24,20 @@ function characterCss(settings: Settings): string {
         );
       }
 
-      /*
-       * 말풍선 색은 메신저의 대사와 드래그 말풍선 두 곳에 똑같이 건다.
-       * 드래그 말풍선은 기본 테마에서도 말풍선이므로 테마를 가리지 않는다.
-       */
       const msgBubble = `.messenger-mode [data-te-role="dialogue"][data-te-speaker="${name}"]`;
-      const dragBubble = `.te-capture .te-bubble[data-te-speaker="${name}"] .te-bubble-text`;
-      const bubbles = theme === 'messenger' ? [msgBubble, dragBubble] : [dragBubble];
 
-      // '내 쪽' 기본 모양이 먼저, 캐릭터가 따로 정한 색이 나중 — 뒤에 온 규칙이 이긴다.
-      if (character.isMe) {
-        /*
-         * 내 쪽은 오른쪽에 붙으므로 이름줄도 통째로 좌우를 뒤집는다.
-         * (프로필)이름 이 아니라 이름(프로필) 이 되어야 오른쪽 끝이 가지런하다.
-         */
-        rules.push(
-          `.te-capture .te-bubble[data-te-speaker="${name}"]{align-items:flex-end;}`,
-          `${dragBubble}{border-radius:var(--msg-radius) var(--msg-tail) var(--msg-radius) var(--msg-radius);`
-          + `background:var(--msg-my-bubble);color:var(--te-ink,var(--msg-my-bubble-text));}`,
-          `.te-capture.msg-profile .te-bubble[data-te-speaker="${name}"] .te-bubble-text`
-          + `{margin-left:0;margin-right:calc(var(--msg-avatar) + 8px);}`,
-          `.te-capture .te-bubble[data-te-speaker="${name}"] .te-bubble-name`
-          + `{flex-direction:row-reverse;}`,
-        );
-        if (theme === 'messenger') {
+      if (theme === 'messenger') {
+        // '내 쪽' 기본 모양이 먼저, 캐릭터가 따로 정한 색이 나중 — 뒤에 온 규칙이 이긴다.
+        if (character.isMe) {
           /*
            * 줄 전체를 text-align 으로 밀면 말풍선 아래 딸린 글까지 오른쪽으로 간다.
            * 말풍선과 이름만 옮기도록 각각에 건다.
+           * 이름줄은 통째로 좌우를 뒤집어 (프로필)이름 이 아니라 이름(프로필) 이 되게 한다 —
+           * row-reverse 에서는 main-start 가 오른쪽이라 flex-start 가 오른쪽 끝이다.
            */
           rules.push(
             `${msgBubble}{margin-left:auto;margin-right:0;`
             + `border-top-left-radius:var(--msg-radius);border-top-right-radius:var(--msg-tail);}`,
-            // row-reverse 에서는 main-start 가 오른쪽이다 — flex-start 가 오른쪽 끝이다.
             `.messenger-mode [data-te-role="name"][data-te-speaker="${name}"]`
             + `{justify-content:flex-start;flex-direction:row-reverse;}`,
             `.messenger-mode.msg-profile [data-te-role="dialogue"][data-te-speaker="${name}"]`
@@ -68,19 +45,13 @@ function characterCss(settings: Settings): string {
             `${msgBubble}{background:var(--msg-my-bubble);color:var(--te-ink,var(--msg-my-bubble-text));}`,
           );
         }
-      }
-      if (character.bubbleColor) {
-        rules.push(`${bubbles.join(',')}{background:${character.bubbleColor};}`);
-      }
-      if (character.bubbleTextColor) {
-        rules.push(`${bubbles.join(',')}{color:var(--te-ink,${character.bubbleTextColor});}`);
-      }
-      if (character.avatar) {
-        rules.push(
-          `.te-capture .te-bubble[data-te-speaker="${name}"] .te-bubble-name::before`
-          + `{background-image:url("${character.avatar}");}`,
-        );
-        if (theme === 'messenger') {
+        if (character.bubbleColor) {
+          rules.push(`${msgBubble}{background:${character.bubbleColor};}`);
+        }
+        if (character.bubbleTextColor) {
+          rules.push(`${msgBubble}{color:var(--te-ink,${character.bubbleTextColor});}`);
+        }
+        if (character.avatar) {
           rules.push(
             `.messenger-mode [data-te-role="name"][data-te-speaker="${name}"]::before`
             + `{background-image:url("${character.avatar}");}`,
@@ -208,6 +179,9 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
 
   const css = useMemo(() => characterCss(settings), [settings]);
 
+  // 고른 본문 글꼴만 받아 온다 (미리 여덟 벌을 받아 두지 않는다)
+  useEffect(() => { ensureWebFont(typography.fontFamily); }, [typography.fontFamily]);
+
   const canAdjust = adjustingImage && background.type === 'image' && Boolean(background.imageUrl);
 
   const frameStyle: CSSProperties = {
@@ -235,8 +209,8 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
     ['--msg-avatar' as string]: `${settings.messenger.profileSize}px`,
     ['--msg-max' as string]: `${settings.messenger.bubbleMaxWidth}%`,
     ['--msg-gap' as string]: `${settings.messenger.gap}px`,
-    // 프로필 쪽 모서리만 각지게 — 꼬리 느낌을 준다
-    ['--msg-tail' as string]: `${Math.min(6, settings.messenger.bubbleRadius)}px`,
+    // 꼬리 쪽 모서리는 아예 각지게 — 조금이라도 둥글리면 꼬리로 보이지 않는다
+    ['--msg-tail' as string]: '0px',
   };
 
   const contentStyle: CSSProperties = {
@@ -257,7 +231,12 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
     wordBreak: typography.wordBreak,
     overflowWrap: typography.wordBreak === 'break-all' ? 'anywhere' : 'break-word',
     textIndent: `${typography.indent}px`,
-    color: roles.enabled ? roles.narration : '#2b2b33',
+    /*
+     * '서술 색' 은 본문의 바탕색이기도 하다.
+     * 대사 구분을 끄면 역할 span 이 없어 이 색만 남는데, 예전에는 여기서
+     * 고정색으로 떨어져 서술 색을 바꿔도 아무 일도 일어나지 않았다.
+     */
+    color: roles.narration,
   };
 
   // 장평: 넓은 폭으로 줄바꿈을 계산한 뒤 가로로 눌러 실제 폭에 맞춘다.

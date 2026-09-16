@@ -5,6 +5,7 @@
  *  직접 Range 를 조작하는 것보다 중첩이 깨지는 경우가 훨씬 적다.)
  */
 import type { Role } from './parse';
+import { ensureWebFont } from './webfonts';
 
 export type InlineCommand = 'bold' | 'italic' | 'underline' | 'strikeThrough';
 
@@ -141,6 +142,7 @@ export function applyFontSize(root: HTMLElement, px: number): void {
 
 /** 선택 영역에만 글꼴을 적용한다. */
 export function applyFontFamily(root: HTMLElement, family: string): void {
+  ensureWebFont(family);
   setCssStyling(true);
   document.execCommand('fontName', false, family);
   // 일부 브라우저는 여전히 <font face> 를 만든다.
@@ -216,75 +218,23 @@ export function alignImage(image: HTMLImageElement, align: ImageAlign): void {
 }
 
 /**
- * 드래그한 글을 말풍선으로 바꾼다.
- * 등록된 캐릭터면 이름과 프로필을 함께 보여주고, 아니면 말풍선만 남긴다.
+ * 예전에 드래그로 만들어 둔 말풍선을 평범한 줄로 되돌린다.
  *
- * 겉모양은 여기서 정하지 않는다. `data-te-speaker` 만 달아 두면 메신저 대사와
- * 똑같은 규칙(말풍선 색·모서리·최대 폭, 캐릭터별 색)이 그대로 걸린다.
- * 그래야 드래그 말풍선도 말풍선 패널에서 함께 조절된다.
+ * 드래그 말풍선은 없앴다 — 대사 span 안에 들어가기도 하고 밖에 놓이기도 해서
+ * 메신저와 겹치는 경우가 너무 많았다. 말풍선은 메신저 테마가 맡는다.
+ * 저장해 둔 글에 남아 있을 수 있으므로 불러올 때 한 번 풀어 준다.
  */
-export function applyBubble(speaker: string, registered: boolean): void {
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
-  const range = sel.getRangeAt(0);
-
-  const wrap = document.createElement('div');
-  wrap.className = 'te-bubble';
-  if (speaker) {
-    wrap.dataset.teBubbleSpeaker = speaker;
-    wrap.dataset.teSpeaker = speaker;
-  }
-
-  if (registered && speaker) {
-    const name = document.createElement('span');
-    name.className = 'te-bubble-name';
-    name.contentEditable = 'false';
-    name.textContent = speaker;
-    wrap.appendChild(name);
-  }
-
-  const body = document.createElement('span');
-  body.className = 'te-bubble-text';
-  try {
-    body.appendChild(range.extractContents());
-  } catch {
-    return;
-  }
-  wrap.appendChild(body);
-  range.insertNode(wrap);
-
-  sel.removeAllRanges();
-  const next = document.createRange();
-  next.selectNodeContents(body);
-  sel.addRange(next);
-}
-
-export function bubbleAtSelection(root: HTMLElement | null): HTMLElement | null {
-  if (!root) return null;
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) return null;
-  let node: Node | null = sel.getRangeAt(0).commonAncestorContainer;
-  while (node && node !== root) {
-    if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).classList.contains('te-bubble')) {
-      return node as HTMLElement;
-    }
-    node = node.parentNode;
-  }
-  return null;
-}
-
-/** 말풍선을 풀고, 남은 글을 담은 요소를 돌려준다 (인물을 바꿔 다시 감쌀 때 쓴다). */
-export function removeBubble(root: HTMLElement): HTMLElement | null {
-  const bubble = bubbleAtSelection(root);
-  if (!bubble) return null;
-  const parent = bubble.parentNode;
-  if (!parent) return null;
-  bubble.querySelector('.te-bubble-name')?.remove();
-  const body = bubble.querySelector('.te-bubble-text');
-  const line = document.createElement('span');
-  while (body?.firstChild) line.appendChild(body.firstChild);
-  parent.replaceChild(line, bubble);
-  return line;
+export function unwrapLegacyBubbles(root: HTMLElement): void {
+  root.querySelectorAll<HTMLElement>('.te-bubble').forEach((bubble) => {
+    const parent = bubble.parentNode;
+    if (!parent) return;
+    bubble.querySelector('.te-bubble-name')?.remove();
+    const body = bubble.querySelector('.te-bubble-text') ?? bubble;
+    const line = document.createElement('span');
+    while (body.firstChild) line.appendChild(body.firstChild);
+    parent.replaceChild(line, bubble);
+  });
+  root.normalize();
 }
 
 export function removeFormatting(root: HTMLElement): void {
@@ -418,8 +368,8 @@ export function pageBreakCount(root: HTMLElement | null): number {
 
 /** 본문에 적용된 모든 인라인 서식을 벗겨낸다 (역할 span 은 유지). */
 export function stripAllFormatting(root: HTMLElement): void {
-  root.querySelectorAll<HTMLElement>('.te-rule, .te-bubble-name').forEach((el) => el.remove());
-  root.querySelectorAll<HTMLElement>('b, strong, i, em, u, s, strike, font, span.te-bar, .te-bubble, .te-bubble-text').forEach((el) => {
+  root.querySelectorAll<HTMLElement>('.te-rule').forEach((el) => el.remove());
+  root.querySelectorAll<HTMLElement>('b, strong, i, em, u, s, strike, font, span.te-bar').forEach((el) => {
     const parent = el.parentNode;
     if (!parent) return;
     while (el.firstChild) parent.insertBefore(el.firstChild, el);
@@ -455,14 +405,145 @@ export function selectionText(): string {
 }
 
 /** 붙여넣기를 평문으로 강제한다 — 외부 서식이 따라 들어오는 것을 막는다. */
-export function insertPlainText(text: string): void {
+/** 에디터의 바로 아래 자식 = '줄'. 커서가 든 줄을 찾는다. */
+function lineAt(root: HTMLElement, node: Node | null): HTMLElement | null {
+  if (!node || node === root) return null;
+  let current: Node | null = node;
+  while (current && current.parentNode !== root) current = current.parentNode;
+  if (!current) return null;
+
+  /*
+   * 줄 단위로 다루려면 요소여야 한다. 감싸지 않은 맨 위 글줄은 <div> 로 감싼다.
+   * 맨 위에 덩그러니 놓인 <br> 도 마찬가지다 — 그건 줄이 아니라 '빈 줄 표시' 라,
+   * 줄로 착각하고 글을 넣으면 <br> 안에 글자가 들어가 화면에서 사라진다.
+   * (전체 지우기 뒤 브라우저가 남기는 <br> 에서 실제로 그랬다.)
+   */
+  const isLine = current.nodeType === Node.ELEMENT_NODE
+    && (current as HTMLElement).tagName !== 'BR';
+  if (isLine) return current as HTMLElement;
+
+  const wrap = document.createElement('div');
+  root.replaceChild(wrap, current);
+  wrap.appendChild(current);
+  return wrap;
+}
+
+function blankLine(): HTMLElement {
+  const div = document.createElement('div');
+  div.appendChild(document.createElement('br'));
+  return div;
+}
+
+/** 빈 줄 표시용 <br> 하나만 있는 줄이면 비워, 글을 넣을 수 있게 만든다. */
+function clearPlaceholder(line: HTMLElement): void {
+  if (line.childNodes.length === 1 && line.firstChild?.nodeName === 'BR') line.textContent = '';
+}
+
+/**
+ * 커서 자리에서 줄을 둘로 나눈다.
+ *
+ * 브라우저에게 맡기지 않는 이유: 메신저에서는 대사 span 이 block 이라 줄 안에
+ * 블록이 들어앉는다. 그 상태에서 브라우저는 문단을 나누지 못하고 그냥 무시한다
+ * (Enter 를 쳐도 아무 일이 없고, 여러 줄을 붙여넣으면 한 줄에 다 붙었다).
+ */
+export function splitLineAtCaret(root: HTMLElement): { head: HTMLElement; tail: HTMLElement } | null {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  if (!root.contains(range.startContainer)) return null;
+  if (!range.collapsed) range.deleteContents();
+
+  let line = lineAt(root, range.startContainer);
+
+  /*
+   * 커서가 줄 '사이'(에디터 자신)에 잡혀 있는 경우.
+   * 곧장 빈 줄을 만들면 이미 있던 빈 줄이 뒤에 남아 줄이 하나 늘어난다 —
+   * 옆 줄을 끌어와 그 줄 안에서 나눈다.
+   */
+  if (!line && range.startContainer === root) {
+    const at = range.startOffset;
+    const neighbour = root.childNodes[at] ?? root.childNodes[at - 1] ?? null;
+    line = lineAt(root, neighbour);
+    if (line) {
+      range.setStart(line, 0);
+      range.collapse(true);
+    }
+  }
+
+  if (!line) {
+    // 에디터가 아예 비어 있는 경우 — 빈 줄 두 개를 만들어 준다.
+    const at = range.startContainer === root ? range.startOffset : root.childNodes.length;
+    const head = blankLine();
+    const tail = blankLine();
+    const before = root.childNodes[at] ?? null;
+    root.insertBefore(head, before);
+    root.insertBefore(tail, before);
+    return { head, tail };
+  }
+
+  const rest = document.createRange();
+  rest.setStart(range.startContainer, range.startOffset);
+  rest.setEndAfter(line.lastChild ?? line);
+  const moved = rest.extractContents();
+
+  const tail = document.createElement('div');
+  if (moved.textContent) tail.appendChild(moved);
+  else tail.appendChild(document.createElement('br'));
+  root.insertBefore(tail, line.nextSibling);
+  if (!line.textContent) line.innerHTML = '<br>';
+  return { head: line, tail };
+}
+
+/** 커서를 그 줄의 이 글자 수 뒤에 놓는다. */
+function placeCaret(line: HTMLElement, offset: number): void {
+  const sel = window.getSelection();
+  if (!sel) return;
+  const range = document.createRange();
+  const first = line.firstChild;
+  if (first && first.nodeType === Node.TEXT_NODE) {
+    range.setStart(first, Math.min(offset, (first as Text).data.length));
+  } else {
+    range.setStart(line, 0);
+  }
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+export function insertPlainText(root: HTMLElement | null, text: string): void {
   const normalized = text.replace(/\r\n?/g, '\n');
-  if (!document.execCommand('insertText', false, normalized)) {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+
+  const parts = normalized.split('\n');
+  if (parts.length === 1 || !root) {
+    if (document.execCommand('insertText', false, normalized)) return;
     const range = sel.getRangeAt(0);
     range.deleteContents();
     range.insertNode(document.createTextNode(normalized));
     range.collapse(false);
+    return;
   }
+
+  // 여러 줄은 직접 쌓는다 (위 splitLineAtCaret 의 설명 참고)
+  const split = splitLineAtCaret(root);
+  if (!split) return;
+  const { head, tail } = split;
+
+  if (parts[0]) {
+    clearPlaceholder(head);
+    head.appendChild(document.createTextNode(parts[0]));
+  }
+  for (const part of parts.slice(1, -1)) {
+    const line = document.createElement('div');
+    if (part) line.textContent = part;
+    else line.appendChild(document.createElement('br'));
+    root.insertBefore(line, tail);
+  }
+  const last = parts[parts.length - 1];
+  if (last) {
+    clearPlaceholder(tail);
+    tail.insertBefore(document.createTextNode(last), tail.firstChild);
+  }
+  placeCaret(tail, last.length);
 }

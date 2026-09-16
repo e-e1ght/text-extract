@@ -25,6 +25,15 @@ export const HIGHLIGHT_SWATCHES = [
   '#fff3a3', '#ffd6e0', '#c9f0d6', '#cfe4ff', '#e6d9ff', '#ffe0c2', '#e8e8e8',
 ];
 
+/*
+ * 세로선 색. 하이라이트와 같은 색 갈래를 쓰되 한두 단계 진하게 잡았다.
+ * 선은 가늘어서 하이라이트만큼 옅으면 배경에 묻히고,
+ * 너무 짙으면 글보다 선이 먼저 눈에 든다.
+ */
+export const BAR_SWATCHES = [
+  '#e8bf4e', '#e8859b', '#5fbf90', '#6ea8e0', '#a086d8', '#e89a5e', '#9aa1af',
+];
+
 export const DEFAULT_SETTINGS: Settings = {
   sidebarSide: 'left',
   appTheme: 'dark',
@@ -55,7 +64,7 @@ export const DEFAULT_SETTINGS: Settings = {
     emphasis: '#6b6b76',
     emphasisItalic: true,
     dialogueItalic: false,
-    barColor: '#e0a340',
+    barColor: '#e8bf4e',
   },
   background: {
     type: 'solid',

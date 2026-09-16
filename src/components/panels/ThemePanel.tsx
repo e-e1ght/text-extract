@@ -13,15 +13,13 @@ export function ThemePanel({ detectedNames }: { detectedNames: string[] }) {
       <hr className="divider" />
 
       {/*
-        말풍선 모양은 두 테마가 함께 씁니다.
-        메신저는 대사를 통째로 말풍선으로 바꾸고, 기본 테마에서는 드래그해서 만든
-        말풍선이 같은 모양을 따릅니다. 그래서 테마와 상관없이 늘 열어 둡니다.
+        말풍선 모양은 메신저 테마에서만 쓰이지만, 값은 어느 테마에서나 손볼 수 있게
+        열어 둡니다. 색을 맞춰 두고 테마를 켜 보는 쪽이 오가기 편합니다.
       */}
       <div className="panel-head"><span>말풍선</span></div>
       <Hint>
-        상단 막대의 <strong>메신저</strong> 테마에서는 모든 대사가 말풍선이 되고,
-        <strong>기본</strong> 테마에서는 드래그한 글을 말풍선으로 만들 수 있습니다.
-        아래 값은 두 경우 모두에 적용됩니다.
+        상단 막대에서 <strong>메신저</strong> 테마를 켜면 본문의 대사가 말풍선이 되고,
+        캐릭터 이름·프로필이 함께 표시됩니다.
       </Hint>
           <ColorField label="말풍선 색" value={messenger.bubbleColor}
             onChange={(bubbleColor) => patch('messenger', { bubbleColor })} />

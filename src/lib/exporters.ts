@@ -1,4 +1,4 @@
-import { toBlob, toPng } from 'html-to-image';
+import { getFontEmbedCSS, toBlob, toPng } from 'html-to-image';
 import type { ExportOptions } from '../types';
 
 /** 내보내기에서 제외할 요소 (플레이스홀더, 안내 배지 등) */
@@ -58,7 +58,28 @@ async function waitForImages(node: HTMLElement): Promise<void> {
   }));
 }
 
-async function withPreparedNode<T>(node: HTMLElement, run: () => Promise<T>): Promise<T> {
+/*
+ * 글꼴을 그림 안에 끼워 넣는 CSS.
+ *
+ * html-to-image 는 캡처할 때마다 페이지의 모든 @font-face 를 찾아 글꼴 파일을
+ * 내려받고 base64 로 바꾼다. 한글 글꼴은 한 벌이 수 MB 라 이 일이 저장 시간의
+ * 큰 몫을 차지하고, PDF 는 쪽마다 이걸 되풀이했다. 한 번 만들어 두고 돌려 쓴다.
+ */
+let fontCss: Promise<string> | null = null;
+
+/** 사용자가 글꼴을 새로 올리면 다시 만들어야 한다. */
+export function resetFontCache(): void {
+  fontCss = null;
+}
+
+function embeddedFontCss(node: HTMLElement): Promise<string> {
+  if (!fontCss) {
+    fontCss = getFontEmbedCSS(node).catch(() => '');
+  }
+  return fontCss;
+}
+
+async function withPreparedNode<T>(node: HTMLElement, run: (fontEmbedCSS: string) => Promise<T>): Promise<T> {
   const restore = freezeVideos(node);
   /*
    * 고른 이미지의 파란 테두리는 화면 안내지 결과물이 아니다.
@@ -72,12 +93,12 @@ async function withPreparedNode<T>(node: HTMLElement, run: () => Promise<T>): Pr
     await waitForImages(node);
 
     /*
-     * html-to-image 는 첫 호출에서 글꼴·이미지를 인라인하는 캐시를 채운다.
-     * 그래서 첫 결과가 비거나 일부가 빠지는 일이 잦다 — 한 번 버리고 다시 찍는다.
+     * 예전에는 여기서 작게 한 번 찍어 버리고 다시 찍었다 (첫 결과가 비는 일이 잦아서).
+     * 그 원인은 글꼴을 끼워 넣는 준비가 첫 호출에서야 이뤄지는 것이었으므로,
+     * 준비된 CSS 를 미리 만들어 넘기면 버리는 촬영 없이도 한 번에 제대로 나온다.
+     * 큰 글에서는 이 한 번이 저장 시간의 절반이었다.
      */
-    await toPng(node, { pixelRatio: 0.1, cacheBust: false, filter: exportFilter }).catch(() => '');
-
-    return await run();
+    return await run(await embeddedFontCss(node));
   } finally {
     picked.forEach((el) => el.classList.add('is-picked'));
     restore();
@@ -160,14 +181,14 @@ export async function exportNode(node: HTMLElement, options: ExportOptions): Pro
   const { format, scale, quality, fileName } = options;
   const base = safeName(fileName);
 
-  await withPreparedNode(node, async () => {
+  await withPreparedNode(node, async (fontEmbedCSS) => {
     const pager = paginate(node);
     const suffix = (page: number) => (pager.pages > 1 ? `-${page + 1}` : '');
 
     const shot = async (type: 'png' | 'jpeg') => {
       const blob = await toBlob(node, {
         pixelRatio: scale,
-        cacheBust: true,
+        fontEmbedCSS,
         filter: exportFilter,
         width: node.offsetWidth,
         height: node.offsetHeight,
@@ -188,7 +209,7 @@ export async function exportNode(node: HTMLElement, options: ExportOptions): Pro
         for (let page = 0; page < pager.pages; page += 1) {
           pager.show(page);
           const dataUrl = await toPng(node, {
-            pixelRatio: scale, cacheBust: true, filter: exportFilter,
+            pixelRatio: scale, fontEmbedCSS, filter: exportFilter,
             width: node.offsetWidth, height: node.offsetHeight,
           });
           const width = node.offsetWidth;
@@ -227,8 +248,8 @@ export async function exportNode(node: HTMLElement, options: ExportOptions): Pro
 /** 클립보드 복사 (PNG). 지원하지 않는 브라우저에서는 false 를 돌려준다. */
 export async function copyNodeToClipboard(node: HTMLElement, scale: number): Promise<boolean> {
   if (!navigator.clipboard || typeof ClipboardItem === 'undefined') return false;
-  return withPreparedNode(node, async () => {
-    const blob = await toBlob(node, { pixelRatio: scale, cacheBust: true, filter: exportFilter });
+  return withPreparedNode(node, async (fontEmbedCSS) => {
+    const blob = await toBlob(node, { pixelRatio: scale, fontEmbedCSS, filter: exportFilter });
     if (!blob) return false;
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
     return true;

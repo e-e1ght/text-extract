@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { FONT_OPTIONS, HIGHLIGHT_SWATCHES } from '../defaults';
+import { BAR_SWATCHES, FONT_OPTIONS, HIGHLIGHT_SWATCHES } from '../defaults';
 import {
-  alignImage, applyBar, applyBubble, applyFontFamily, applyFontSize, applyHighlight,
-  applyTextColor, barAtSelection, bubbleAtSelection, clearHighlight, hasSelectionInside,
-  queryInline, removeBubble, removeFormatting, selectionImage, selectionRole, selectionText,
+  alignImage, applyBar, applyFontFamily, applyFontSize, applyHighlight,
+  applyTextColor, barAtSelection, clearHighlight, hasSelectionInside,
+  queryInline, removeFormatting, selectionImage, selectionRole, selectionText,
   toggleInline, type ImageAlign, type InlineCommand,
 } from '../lib/format';
 import { fontFamilyOf } from '../lib/fonts';
@@ -29,7 +29,7 @@ const ROLE_LABEL: Record<Role, string> = {
 
 const TEXT_SWATCHES = ['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8', '#8b5a2b', '#8a8a95'];
 
-type Panel = 'none' | 'color' | 'highlight' | 'size' | 'character' | 'bubble' | 'font' | 'bar' | 'image';
+type Panel = 'none' | 'color' | 'highlight' | 'size' | 'character' | 'font' | 'bar' | 'image';
 /** 색을 '이 선택 영역만' 바꿀지, '같은 역할 전체'에 적용할지 */
 type ColorScope = 'role' | 'selection';
 
@@ -44,8 +44,6 @@ export function SelectionPopup({
   const [scope, setScope] = useState<ColorScope>('role');
   const [picked, setPicked] = useState('');
   const [sizeInput, setSizeInput] = useState('');
-  const [bubbleSpeaker, setBubbleSpeaker] = useState('');
-  const [inBubble, setInBubble] = useState(false);
   const [pickedImage, setPickedImage] = useState<HTMLImageElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
   /**
@@ -86,9 +84,6 @@ export function SelectionPopup({
       setActive(Object.fromEntries(INLINE_BUTTONS.map((b) => [b.command, queryInline(b.command)])));
       setRole(selectionRole(editorRoot));
       setPicked(selectionText());
-      const bubble = bubbleAtSelection(editorRoot);
-      setInBubble(Boolean(bubble));
-      if (bubble) setBubbleSpeaker(bubble.dataset.teBubbleSpeaker ?? '');
       setPickedImage(selectionImage(editorRoot));
     };
 
@@ -136,25 +131,6 @@ export function SelectionPopup({
     ...FONT_OPTIONS,
     ...settings.customFonts.map((font) => ({ label: `${font.label} (내 글꼴)`, value: fontFamilyOf(font) })),
   ];
-  const characterNames = Object.keys(settings.characters);
-
-  const makeBubble = () => {
-    // 이미 말풍선이면 먼저 풀어 낸 뒤 새 인물로 다시 감싼다.
-    // 풀면서 DOM 이 바뀌므로, 새로 생긴 요소를 다시 선택해 줘야 한다.
-    if (bubbleAtSelection(editorRoot)) {
-      const line = removeBubble(editorRoot);
-      if (!line) return;
-      const sel = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(line);
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-      lastRange.current = range.cloneRange();
-    }
-    // 색·프로필·좌우는 CSS 가 캐릭터 이름을 보고 붙인다 — 여기서는 이름만 넘긴다.
-    applyBubble(bubbleSpeaker, Boolean(settings.characters[bubbleSpeaker]));
-    setPanel('none');
-  };
 
   return (
     <div
@@ -235,14 +211,6 @@ export function SelectionPopup({
             이미지
           </button>
         ) : null}
-        <button
-          type="button"
-          title="말풍선으로 만들기"
-          className={`popup-btn ${panel === 'bubble' ? 'is-active' : ''}`}
-          onClick={() => setPanel((v) => (v === 'bubble' ? 'none' : 'bubble'))}
-        >
-          말풍선
-        </button>
         <button
           type="button"
           title="선택한 글자를 캐릭터로 지정"
@@ -382,7 +350,7 @@ export function SelectionPopup({
       {panel === 'bar' ? (
         <div className="popup-sub popup-sub-column">
           <div className="popup-row">
-            {['#e0a340', '#3aa6a0', '#8b1e1e', '#1f4f8b', '#7a4fa8', '#5c6270'].map((color) => (
+            {BAR_SWATCHES.map((color) => (
               <button
                 key={color}
                 type="button"
@@ -402,46 +370,6 @@ export function SelectionPopup({
             {barAtSelection(editorRoot)
               ? '이미 세로선이 있어 색만 바뀝니다.'
               : '드래그한 글 왼쪽에 세로선을 붙입니다.'}
-          </p>
-        </div>
-      ) : null}
-
-      {panel === 'bubble' ? (
-        <div className="popup-sub popup-sub-column">
-          <select
-            className="popup-select"
-            value={bubbleSpeaker}
-            onChange={(event) => setBubbleSpeaker(event.target.value)}
-          >
-            <option value="">인물 없음 (말풍선만)</option>
-            {characterNames.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
-          <div className="popup-row">
-            <button
-              type="button"
-              className="popup-btn slim"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => withSelection(makeBubble)}
-            >
-              {inBubble ? '인물 바꾸기' : '말풍선으로 만들기'}
-            </button>
-            {inBubble ? (
-              <button
-                type="button"
-                className="popup-btn slim"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => withSelection(() => { removeBubble(editorRoot); setPanel('none'); })}
-              >
-                말풍선 풀기
-              </button>
-            ) : null}
-          </div>
-          <p className="popup-note">
-            {bubbleSpeaker
-              ? '이름과 프로필이 함께 표시됩니다.'
-              : '등록된 인물이 아니면 말풍선만 표시됩니다.'}
           </p>
         </div>
       ) : null}

@@ -75,7 +75,7 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
           </button>
           <input
             type="color"
-            value={/^#[0-9a-f]{6}$/i.test(settings.roles.barColor) ? settings.roles.barColor : '#e0a340'}
+            value={/^#[0-9a-f]{6}$/i.test(settings.roles.barColor) ? settings.roles.barColor : '#e8bf4e'}
             onChange={(e) => {
               patch('roles', { barColor: e.target.value });
               if (editorRoot) applyBar(editorRoot, e.target.value);

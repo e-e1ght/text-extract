@@ -5,6 +5,7 @@
  * 파일은 IndexedDB 에 두고, 설정에는 목록(id·이름)만 남긴다.
  */
 import type { CustomFont } from '../types';
+import { resetFontCache } from './exporters';
 
 const DB_NAME = 'text-extract-fonts';
 const STORE = 'fonts';
@@ -48,6 +49,7 @@ export async function saveFontFile(file: File): Promise<CustomFont> {
 }
 
 export async function deleteFontFile(id: string): Promise<void> {
+  resetFontCache();
   await withStore('readwrite', (store) => store.delete(id));
   document.getElementById(`te-font-style-${id}`)?.remove();
 }
@@ -78,6 +80,8 @@ export async function installFont(font: CustomFont): Promise<boolean> {
   style.textContent =
     `@font-face{font-family:"te-font-${font.id}";src:url(${dataUrl});font-display:swap;}`;
   document.head.appendChild(style);
+  // 내보내기용 글꼴 CSS 를 미리 만들어 두므로, 글꼴이 늘면 다시 만들게 한다.
+  resetFontCache();
   return true;
 }
 
