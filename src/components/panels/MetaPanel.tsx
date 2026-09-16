@@ -29,8 +29,7 @@ export function MetaPanel() {
         </>
       ) : null}
 
-      <Toggle label="제작자 표시" checked={meta.showAuthor} onChange={(showAuthor) => patch('meta', { showAuthor })}
-        hint="언제나 본문 아래에 표시됩니다" />
+      <Toggle label="제작자 표시" checked={meta.showAuthor} onChange={(showAuthor) => patch('meta', { showAuthor })} />
       {meta.showAuthor ? (
         <>
           <TextInput label="제작자" value={meta.author} placeholder="@아이디 / 이름"
@@ -38,6 +37,13 @@ export function MetaPanel() {
           <NumberSlider label="제작자 크기" value={meta.authorSize} min={8} max={32}
             onChange={(authorSize) => patch('meta', { authorSize })} />
           <ColorField label="제작자 색" value={meta.authorColor} onChange={(authorColor) => patch('meta', { authorColor })} />
+          <ButtonGroup
+            label="제작자 위치"
+            value={meta.authorPosition}
+            options={[{ label: '본문 위', value: 'top' as const }, { label: '본문 아래', value: 'bottom' as const }]}
+            onChange={(authorPosition) => patch('meta', { authorPosition })}
+            hint="제목과 같은 쪽이면 바깥쪽"
+          />
           <ButtonGroup
             label="제작자 정렬"
             value={meta.authorAlign}

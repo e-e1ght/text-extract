@@ -99,6 +99,7 @@ export const DEFAULT_SETTINGS: Settings = {
     authorSize: 13,
     authorColor: '#8a8a95',
     authorAlign: 'right',
+    authorPosition: 'bottom',
     authorGap: 32,
     align: 'center',
     position: 'top',

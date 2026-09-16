@@ -148,10 +148,14 @@ function TitleBlock({ settings }: { settings: Settings }) {
   );
 }
 
-/** 제작자는 언제나 본문 아래에 놓이고, 정렬을 따로 잡는다. */
+/** 제작자는 위치도 정렬도 제목과 따로 잡는다. */
 function AuthorBlock({ settings }: { settings: Settings }) {
   const { meta } = settings;
   if (!meta.showAuthor || !meta.author) return null;
+  // 간격은 본문을 바라보는 쪽에만 준다
+  const spacing = meta.authorPosition === 'top'
+    ? { marginBottom: `${meta.authorGap}px` }
+    : { marginTop: `${meta.authorGap}px` };
   return (
     <div
       className="meta-author"
@@ -159,7 +163,7 @@ function AuthorBlock({ settings }: { settings: Settings }) {
         fontSize: `${meta.authorSize}px`,
         color: meta.authorColor,
         textAlign: meta.authorAlign,
-        marginTop: `${meta.authorGap}px`,
+        ...spacing,
       }}
     >
       {meta.author}
@@ -297,10 +301,12 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
         {/* 제목·제작자도 장평과 본문 서식을 함께 받도록 같은 래퍼 안에 둔다 */}
         <div className="te-scale" style={scaleStyle}>
           <div className="te-type" style={typeStyle}>
+            {/* 제목과 제작자가 같은 쪽이면 제작자를 바깥쪽에 둔다 */}
+            {meta.authorPosition === 'top' ? <AuthorBlock settings={settings} /> : null}
             {meta.position === 'top' ? <TitleBlock settings={settings} /> : null}
             {children}
             {meta.position === 'bottom' ? <TitleBlock settings={settings} /> : null}
-            <AuthorBlock settings={settings} />
+            {meta.authorPosition === 'bottom' ? <AuthorBlock settings={settings} /> : null}
           </div>
         </div>
       </div>

@@ -85,8 +85,10 @@ export interface Meta {
   author: string;
   authorSize: number;
   authorColor: string;
-  /** 제작자는 항상 본문 아래에 오고, 정렬은 제목과 따로 잡는다 */
+  /** 제작자는 위치·정렬 모두 제목과 따로 잡는다 */
   authorAlign: Exclude<AlignX, 'justify'>;
+  /** 본문 위/아래. 제목과 같은 쪽이면 제작자가 바깥쪽에 온다 */
+  authorPosition: 'top' | 'bottom';
   authorGap: number;
   align: Exclude<AlignX, 'justify'>;
   position: 'top' | 'bottom';
