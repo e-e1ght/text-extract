@@ -1,5 +1,4 @@
 export type SidebarSide = 'left' | 'right';
-export type ThemeId = 'plain' | 'messenger';
 export type AlignX = 'left' | 'center' | 'right' | 'justify';
 export type AlignY = 'top' | 'center' | 'bottom';
 
@@ -98,7 +97,8 @@ export interface Meta {
   innerGap: number;
 }
 
-export interface Messenger {
+/** 드래그해서 만드는 말풍선의 겉모양 */
+export interface Bubble {
   bubbleRadius: number;
   bubbleColor: string;
   bubbleTextColor: string;
@@ -110,7 +110,6 @@ export interface Messenger {
   nameSize: number;
   bubbleMaxWidth: number;
   gap: number;
-  narrationStyle: 'plain' | 'muted' | 'hidden';
 }
 
 export interface CharacterStyle {
@@ -158,7 +157,6 @@ export interface Settings {
   sidebarWidth: number;
   /** 지금 열려 있는 도구 패널. null 이면 모두 닫힘 */
   activePanel: string | null;
-  theme: ThemeId;
   autoParse: boolean;
   /** 붙여넣을 때 빈 줄을 정리해 문단 간격만으로 띄우기 */
   tidyBlankLines: boolean;
@@ -169,7 +167,7 @@ export interface Settings {
   background: Background;
   layout: Layout;
   meta: Meta;
-  messenger: Messenger;
+  bubble: Bubble;
   characters: Record<string, CharacterStyle>;
   customFonts: CustomFont[];
   stickers: Sticker[];

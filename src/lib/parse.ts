@@ -204,7 +204,7 @@ function isBlockBoundary(node: Node): boolean {
  */
 /**
  * contenteditable 은 첫 줄을 <div> 로 감싸지 않는다.
- * 줄 단위로 거는 규칙(메신저 오른쪽 정렬, 페이지 나눔)이 먹으려면 모든 줄이 요소여야 한다.
+ * 줄 단위로 거는 규칙(페이지 나눔 등)이 먹으려면 모든 줄이 요소여야 한다.
  */
 function wrapLooseFirstLine(root: HTMLElement): void {
   const loose: Node[] = [];
@@ -263,23 +263,18 @@ export function markupRoles(root: HTMLElement): void {
     const fragment = document.createDocumentFragment();
     let first = true;
     for (const piece of pieces) {
-      // 서술까지 span 으로 감싼다 — 메신저 모드에서 역할별로 다르게 보여주려면
+      // 서술까지 span 으로 감싼다 — 역할별로 색·크기를 따로 주려면
       // 모든 조각이 CSS 로 잡혀야 하기 때문.
       const span = document.createElement('span');
       span.className = CLASS_BY_ROLE[piece.role];
       span.dataset.teRole = piece.role;
       if (piece.speaker) span.dataset.teSpeaker = piece.speaker;
       if (piece.role === 'dialogue' && carriedOver && first) span.dataset.teCont = 'true';
-      /*
-       * `이름: "대사"` 의 콜론과 따옴표 사이 빈칸도 조각이 된다.
-       * 메신저에서는 이름과 말풍선이 각각 블록이라, 이 빈칸 하나가 사이에 끼어
-       * 제 몫의 줄을 차지한다(행간만큼 벌어진다). 표시해 두고 CSS 로 감춘다.
-       */
+      // `이름: "대사"` 의 콜론과 따옴표 사이 빈칸도 제 조각이 된다 — 따로 다룰 수 있게 표시한다.
       if (piece.text.trim() === '') span.dataset.teBlank = 'true';
       first = false;
 
-      // `이름:` 의 구분 기호와 대사의 따옴표는 따로 감싼다.
-      // 메신저 말풍선에서는 이름과 대사만 보여야 하기 때문이다.
+      // `이름:` 의 구분 기호와 대사의 따옴표는 따로 감싼다 (따로 다룰 수 있도록).
       const separator = piece.role === 'name' ? /([:：]\s*)$/.exec(piece.text) : null;
       if (separator) {
         span.appendChild(document.createTextNode(piece.text.slice(0, separator.index)));
@@ -306,14 +301,14 @@ export function markupRoles(root: HTMLElement): void {
 }
 
 /* ------------------------------------------------------------------ */
-/* 메신저 테마용 구조 파싱                                              */
+/* 줄을 대사/서술 덩어리로 쪼개기 (캐릭터 이름 찾기에 쓴다)              */
 /* ------------------------------------------------------------------ */
 
 export type Block =
   | { kind: 'dialogue'; name: string; text: string }
   | { kind: 'narration'; text: string };
 
-/** *…* / **…** 강조 기호를 벗겨낸다 (말풍선 뷰는 파생 결과라 기호를 남기지 않는다) */
+/** *…* / **…** 강조 기호를 벗겨낸다 */
 function stripEmphasis(value: string): string {
   return value.replace(/\*\*([\s\S]+?)\*\*/g, '$1').replace(/\*([\s\S]+?)\*/g, '$1');
 }

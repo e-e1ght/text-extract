@@ -9,17 +9,17 @@ import { ColorPanel } from './panels/ColorPanel';
 import { BackgroundPanel } from './panels/BackgroundPanel';
 import { LayoutPanel } from './panels/LayoutPanel';
 import { MetaPanel } from './panels/MetaPanel';
-import { ThemePanel } from './panels/ThemePanel';
+import { BubblePanel } from './panels/BubblePanel';
 import { ExportPanel } from './panels/ExportPanel';
 
 export type PanelId =
-  | 'meta' | 'text' | 'color' | 'messenger' | 'background' | 'layout' | 'export';
+  | 'meta' | 'text' | 'color' | 'bubble' | 'background' | 'layout' | 'export';
 
 const RAIL: Array<{ id: PanelId; label: string; icon: ReactNode }> = [
   { id: 'meta', label: '제목 · 제작자', icon: <IconHeading /> },
   { id: 'text', label: '본문', icon: <IconText /> },
   { id: 'color', label: '색상', icon: <IconPalette /> },
-  { id: 'messenger', label: '말풍선 · 캐릭터', icon: <IconBubble /> },
+  { id: 'bubble', label: '말풍선 · 캐릭터', icon: <IconBubble /> },
   { id: 'background', label: '배경', icon: <IconImage /> },
   { id: 'layout', label: '이미지 영역', icon: <IconFrame /> },
   { id: 'export', label: '저장 · 설정', icon: <IconSave /> },
@@ -50,7 +50,7 @@ export function Workspace({ editorRoot, captureNode, detectedNames }: WorkspaceP
       case 'background': return <BackgroundPanel />;
       case 'layout': return <LayoutPanel />;
       case 'meta': return <MetaPanel />;
-      case 'messenger': return <ThemePanel detectedNames={detectedNames} />;
+      case 'bubble': return <BubblePanel detectedNames={detectedNames} />;
       case 'export': return <ExportPanel captureNode={captureNode} editorRoot={editorRoot} />;
       default: return null;
     }
@@ -69,7 +69,7 @@ export function Workspace({ editorRoot, captureNode, detectedNames }: WorkspaceP
           >
             {item.icon}
             <span className="rail-tip">{item.label}</span>
-            {item.id === 'messenger' && detectedNames.length > 0 ? (
+            {item.id === 'bubble' && detectedNames.length > 0 ? (
               <span className="rail-dot" />
             ) : null}
           </button>

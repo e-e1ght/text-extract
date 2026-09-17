@@ -124,7 +124,7 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
                 <span>말풍선</span>
                 <input
                   type="color"
-                  value={hex(character.bubbleColor, settings.messenger.bubbleColor)}
+                  value={hex(character.bubbleColor, settings.bubble.bubbleColor)}
                   onChange={(event) => upsertCharacter(character.name, { bubbleColor: event.target.value })}
                 />
               </label>
@@ -132,7 +132,7 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
                 <span>말풍선 글자</span>
                 <input
                   type="color"
-                  value={hex(character.bubbleTextColor, settings.messenger.bubbleTextColor)}
+                  value={hex(character.bubbleTextColor, settings.bubble.bubbleTextColor)}
                   onChange={(event) => upsertCharacter(character.name, { bubbleTextColor: event.target.value })}
                 />
               </label>

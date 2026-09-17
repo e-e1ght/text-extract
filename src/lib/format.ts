@@ -218,23 +218,72 @@ export function alignImage(image: HTMLImageElement, align: ImageAlign): void {
 }
 
 /**
- * 예전에 드래그로 만들어 둔 말풍선을 평범한 줄로 되돌린다.
+ * 드래그한 글을 말풍선으로 바꾼다.
+ * 등록된 캐릭터면 이름과 프로필을 함께 보여주고, 아니면 말풍선만 남긴다.
  *
- * 드래그 말풍선은 없앴다 — 대사 span 안에 들어가기도 하고 밖에 놓이기도 해서
- * 메신저와 겹치는 경우가 너무 많았다. 말풍선은 메신저 테마가 맡는다.
- * 저장해 둔 글에 남아 있을 수 있으므로 불러올 때 한 번 풀어 준다.
+ * 겉모양은 여기서 정하지 않는다. `data-te-speaker` 만 달아 두면 말풍선 패널의 값과
+ * 캐릭터별 색이 CSS 로 걸린다. 색을 요소에 박아 두면 나중에 캐릭터 색을 바꿔도
+ * 이미 만들어 둔 말풍선이 따라오지 않는다.
  */
-export function unwrapLegacyBubbles(root: HTMLElement): void {
-  root.querySelectorAll<HTMLElement>('.te-bubble').forEach((bubble) => {
-    const parent = bubble.parentNode;
-    if (!parent) return;
-    bubble.querySelector('.te-bubble-name')?.remove();
-    const body = bubble.querySelector('.te-bubble-text') ?? bubble;
-    const line = document.createElement('span');
-    while (body.firstChild) line.appendChild(body.firstChild);
-    parent.replaceChild(line, bubble);
-  });
-  root.normalize();
+export function applyBubble(speaker: string, registered: boolean): void {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'te-bubble';
+  if (speaker) wrap.dataset.teSpeaker = speaker;
+
+  if (registered && speaker) {
+    const name = document.createElement('span');
+    name.className = 'te-bubble-name';
+    name.contentEditable = 'false';
+    name.textContent = speaker;
+    wrap.appendChild(name);
+  }
+
+  const body = document.createElement('span');
+  body.className = 'te-bubble-text';
+  try {
+    body.appendChild(range.extractContents());
+  } catch {
+    return;
+  }
+  wrap.appendChild(body);
+  range.insertNode(wrap);
+
+  sel.removeAllRanges();
+  const next = document.createRange();
+  next.selectNodeContents(body);
+  sel.addRange(next);
+}
+
+export function bubbleAtSelection(root: HTMLElement | null): HTMLElement | null {
+  if (!root) return null;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  let node: Node | null = sel.getRangeAt(0).commonAncestorContainer;
+  while (node && node !== root) {
+    if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).classList.contains('te-bubble')) {
+      return node as HTMLElement;
+    }
+    node = node.parentNode;
+  }
+  return null;
+}
+
+/** 말풍선을 풀고, 남은 글을 담은 요소를 돌려준다 (인물을 바꿔 다시 감쌀 때 쓴다). */
+export function removeBubble(root: HTMLElement): HTMLElement | null {
+  const bubble = bubbleAtSelection(root);
+  if (!bubble) return null;
+  const parent = bubble.parentNode;
+  if (!parent) return null;
+  bubble.querySelector('.te-bubble-name')?.remove();
+  const body = bubble.querySelector('.te-bubble-text');
+  const line = document.createElement('span');
+  while (body?.firstChild) line.appendChild(body.firstChild);
+  parent.replaceChild(line, bubble);
+  return line;
 }
 
 export function removeFormatting(root: HTMLElement): void {
@@ -368,8 +417,10 @@ export function pageBreakCount(root: HTMLElement | null): number {
 
 /** 본문에 적용된 모든 인라인 서식을 벗겨낸다 (역할 span 은 유지). */
 export function stripAllFormatting(root: HTMLElement): void {
-  root.querySelectorAll<HTMLElement>('.te-rule').forEach((el) => el.remove());
-  root.querySelectorAll<HTMLElement>('b, strong, i, em, u, s, strike, font, span.te-bar').forEach((el) => {
+  root.querySelectorAll<HTMLElement>('.te-rule, .te-bubble-name').forEach((el) => el.remove());
+  root.querySelectorAll<HTMLElement>(
+    'b, strong, i, em, u, s, strike, font, span.te-bar, .te-bubble, .te-bubble-text',
+  ).forEach((el) => {
     const parent = el.parentNode;
     if (!parent) return;
     while (el.firstChild) parent.insertBefore(el.firstChild, el);
@@ -442,9 +493,9 @@ function clearPlaceholder(line: HTMLElement): void {
 /**
  * 커서 자리에서 줄을 둘로 나눈다.
  *
- * 브라우저에게 맡기지 않는 이유: 메신저에서는 대사 span 이 block 이라 줄 안에
- * 블록이 들어앉는다. 그 상태에서 브라우저는 문단을 나누지 못하고 그냥 무시한다
- * (Enter 를 쳐도 아무 일이 없고, 여러 줄을 붙여넣으면 한 줄에 다 붙었다).
+ * 브라우저에게 맡기지 않는 이유: 말풍선은 div 라 줄 안에 블록이 들어앉는다.
+ * 그 상태에서 브라우저는 문단을 나누지 못하고 그냥 무시한다
+ * (여러 줄을 붙여넣으면 한 줄에 다 붙었다).
  */
 export function splitLineAtCaret(root: HTMLElement): { head: HTMLElement; tail: HTMLElement } | null {
   const sel = window.getSelection();

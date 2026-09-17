@@ -24,6 +24,14 @@ export function mergeSettings(base: Settings, incoming: unknown): Settings {
     }
     return out;
   };
+  /*
+   * 예전에는 말풍선 설정이 메신저 테마의 것이라 `messenger` 라는 이름이었다.
+   * 메신저를 없애면서 `bubble` 로 옮겼다 — 예전에 저장해 둔 색·크기를 살린다.
+   */
+  if (isPlainObject(incoming) && isPlainObject((incoming as Plain).messenger)
+      && !isPlainObject((incoming as Plain).bubble)) {
+    incoming = { ...(incoming as Plain), bubble: (incoming as Plain).messenger };
+  }
   // characters 는 사용자가 정의한 자유 키라 병합이 아니라 통째로 교체한다.
   const result = merge(base, incoming) as Settings;
   if (isPlainObject(incoming) && isPlainObject((incoming as Plain).characters)) {

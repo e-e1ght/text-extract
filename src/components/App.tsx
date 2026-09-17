@@ -147,7 +147,6 @@ export function App() {
     return () => observer.disconnect();
   }, [stageNode, settings.layout.width, settings.previewZoom, set]);
 
-  const isMessenger = settings.theme === 'messenger';
   const isEmpty = plainText.trim().length === 0;
 
   return (
@@ -158,25 +157,8 @@ export function App() {
       <header className="topbar">
         <span className="brand">텍스트 발췌기</span>
 
-        {/* 테마는 결과물을 통째로 바꾸는 선택이라 가장 잘 보이는 자리에 둔다 */}
-        <div className="theme-switch" role="group" aria-label="테마">
-          {([['plain', '기본'], ['messenger', '메신저']] as const).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              className={settings.theme === value ? 'is-active' : ''}
-              aria-pressed={settings.theme === value}
-              onClick={() => set('theme', value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
         <div className="topbar-right">
-          <span className="topbar-hint">
-            {isMessenger ? '대사가 말풍선으로 보입니다' : '미리보기에 바로 입력하세요'}
-          </span>
+          <span className="topbar-hint">미리보기에 바로 입력하세요</span>
 
           <div className="topbar-tools">
             <button
@@ -235,7 +217,6 @@ export function App() {
               >
                 <div className="zoom-inner" style={{ transform: `scale(${zoom})` }}>
                   <Preview settings={settings} captureRef={setCaptureNode}>
-                    {/* 메신저는 같은 본문을 말풍선 모양으로 보여줄 뿐이라 에디터는 늘 같은 것을 쓴다 */}
                     <div className="editor-wrap">
                       <Editor
                         initialContent={liveHtml.current}

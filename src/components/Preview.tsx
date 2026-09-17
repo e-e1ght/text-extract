@@ -9,14 +9,21 @@ function escapeAttr(value: string): string {
 
 /** 캐릭터별 색상·말풍선을 동적 CSS 규칙으로 만든다. */
 function characterCss(settings: Settings): string {
-  const { characters, roles, theme } = settings;
+  const { characters, roles } = settings;
   if (!roles.enabled) return '';
 
   return Object.values(characters)
     .map((character) => {
       const name = escapeAttr(character.name);
+      const bubble = `.te-capture .te-bubble[data-te-speaker="${name}"]`;
       const rules = [
         `.te-capture [data-te-role="name"][data-te-speaker="${name}"]{color:var(--te-ink,${character.color});}`,
+        /*
+         * 말풍선 이름표는 우리가 붙인 이름표지 사용자가 쓴 글이 아니다.
+         * --te-ink(드래그로 준 색)를 끼워 두면 말풍선 안 글자색을 물려받아
+         * 캐릭터 이름 색이 먹지 않는다. 캐릭터 색을 그대로 쓴다.
+         */
+        `${bubble} .te-bubble-name{color:${character.color};}`,
       ];
       if (character.dialogueColor) {
         rules.push(
@@ -24,40 +31,44 @@ function characterCss(settings: Settings): string {
         );
       }
 
-      const msgBubble = `.messenger-mode [data-te-role="dialogue"][data-te-speaker="${name}"]`;
-
-      if (theme === 'messenger') {
-        // '내 쪽' 기본 모양이 먼저, 캐릭터가 따로 정한 색이 나중 — 뒤에 온 규칙이 이긴다.
-        if (character.isMe) {
-          /*
-           * 줄 전체를 text-align 으로 밀면 말풍선 아래 딸린 글까지 오른쪽으로 간다.
-           * 말풍선과 이름만 옮기도록 각각에 건다.
-           * 이름줄은 통째로 좌우를 뒤집어 (프로필)이름 이 아니라 이름(프로필) 이 되게 한다 —
-           * row-reverse 에서는 main-start 가 오른쪽이라 flex-start 가 오른쪽 끝이다.
-           */
-          rules.push(
-            `${msgBubble}{margin-left:auto;margin-right:0;`
-            + `border-top-left-radius:var(--msg-radius);border-top-right-radius:var(--msg-tail);}`,
-            `.messenger-mode [data-te-role="name"][data-te-speaker="${name}"]`
-            + `{justify-content:flex-start;flex-direction:row-reverse;}`,
-            `.messenger-mode.msg-profile [data-te-role="dialogue"][data-te-speaker="${name}"]`
-            + `{margin-right:calc(var(--msg-avatar) + 8px);}`,
-            `${msgBubble}{background:var(--msg-my-bubble);color:var(--te-ink,var(--msg-my-bubble-text));}`,
-          );
-        }
-        if (character.bubbleColor) {
-          rules.push(`${msgBubble}{background:${character.bubbleColor};}`);
-        }
-        if (character.bubbleTextColor) {
-          rules.push(`${msgBubble}{color:var(--te-ink,${character.bubbleTextColor});}`);
-        }
-        if (character.avatar) {
-          rules.push(
-            `.messenger-mode [data-te-role="name"][data-te-speaker="${name}"]::before`
-            + `{background-image:url("${character.avatar}");}`,
-          );
-        }
+      // '내 쪽' 기본 모양이 먼저, 캐릭터가 따로 정한 색이 나중 — 뒤에 온 규칙이 이긴다.
+      if (character.isMe) {
+        /*
+         * 내 쪽은 오른쪽에 붙으므로 이름줄도 통째로 좌우를 뒤집는다.
+         * (프로필)이름 이 아니라 이름(프로필) 이라야 오른쪽 끝이 가지런하다.
+         * row-reverse 에서는 main-start 가 오른쪽이라 flex-start 가 오른쪽 끝이다.
+         */
+        rules.push(
+          `${bubble}{align-items:flex-end;}`,
+          `${bubble} .te-bubble-name{flex-direction:row-reverse;}`,
+          `${bubble} .te-bubble-text{`
+          + `border-radius:var(--bub-radius) var(--bub-tail) var(--bub-radius) var(--bub-radius);`
+          + `background:var(--bub-my-bg);color:var(--te-ink,var(--bub-my-fg));}`,
+          `.te-capture.bub-profile ${bubble.slice('.te-capture '.length)} .te-bubble-text`
+          + `{margin-left:0;margin-right:calc(var(--bub-avatar) + 8px);}`,
+        );
       }
+      if (character.bubbleColor) {
+        rules.push(`${bubble} .te-bubble-text{background:${character.bubbleColor};}`);
+      }
+      if (character.bubbleTextColor) {
+        rules.push(`${bubble} .te-bubble-text{color:var(--te-ink,${character.bubbleTextColor});}`);
+      }
+      if (character.avatar) {
+        rules.push(`${bubble} .te-bubble-name::before{background-image:url("${character.avatar}");}`);
+      }
+      /*
+       * `이름: "대사"` 를 통째로 드래그해 말풍선으로 만들면 이름이 두 번 나온다
+       * (말풍선 이름표 + 본문 속 `이름:`). 같은 인물일 때만 본문 쪽을 감춘다.
+       * 뒤따르는 빈칸도 함께 — 남겨 두면 말풍선 글이 한 칸 밀린다.
+       */
+      rules.push(
+        `.te-capture.bub-name ${bubble.slice('.te-capture '.length)} .te-bubble-text`
+        + ` [data-te-role="name"][data-te-speaker="${name}"],`
+        + `.te-capture.bub-name ${bubble.slice('.te-capture '.length)} .te-bubble-text`
+        + ` [data-te-role="narration"][data-te-blank][data-te-speaker="${name}"]`
+        + `{display:none;}`,
+      );
       return rules.join('');
     })
     .join('');
@@ -199,18 +210,18 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
     ['--te-dialogue-style' as string]: roles.dialogueItalic ? 'italic' : 'normal',
     ['--te-dialogue-size' as string]: `${typography.dialogueFontSize}px`,
     ['--te-paragraph-gap' as string]: `${typography.paragraphGap}px`,
-    // 메신저 모드 — 같은 본문을 말풍선 모양으로만 다르게 보여준다
-    ['--msg-radius' as string]: `${settings.messenger.bubbleRadius}px`,
-    ['--msg-bubble' as string]: settings.messenger.bubbleColor,
-    ['--msg-bubble-text' as string]: settings.messenger.bubbleTextColor,
-    ['--msg-my-bubble' as string]: settings.messenger.myBubbleColor,
-    ['--msg-my-bubble-text' as string]: settings.messenger.myBubbleTextColor,
-    ['--msg-name-size' as string]: `${settings.messenger.nameSize}px`,
-    ['--msg-avatar' as string]: `${settings.messenger.profileSize}px`,
-    ['--msg-max' as string]: `${settings.messenger.bubbleMaxWidth}%`,
-    ['--msg-gap' as string]: `${settings.messenger.gap}px`,
+    // 드래그해서 만드는 말풍선
+    ['--bub-radius' as string]: `${settings.bubble.bubbleRadius}px`,
+    ['--bub-bg' as string]: settings.bubble.bubbleColor,
+    ['--bub-fg' as string]: settings.bubble.bubbleTextColor,
+    ['--bub-my-bg' as string]: settings.bubble.myBubbleColor,
+    ['--bub-my-fg' as string]: settings.bubble.myBubbleTextColor,
+    ['--bub-name-size' as string]: `${settings.bubble.nameSize}px`,
+    ['--bub-avatar' as string]: `${settings.bubble.profileSize}px`,
+    ['--bub-max' as string]: `${settings.bubble.bubbleMaxWidth}%`,
+    ['--bub-gap' as string]: `${settings.bubble.gap}px`,
     // 꼬리 쪽 모서리는 아예 각지게 — 조금이라도 둥글리면 꼬리로 보이지 않는다
-    ['--msg-tail' as string]: '0px',
+    ['--bub-tail' as string]: '0px',
   };
 
   const contentStyle: CSSProperties = {
@@ -251,11 +262,8 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
         'te-capture',
         roles.enabled ? '' : 'roles-off',
         settings.hideEmphasisMarks ? 'hide-marks' : '',
-        settings.theme === 'messenger' ? 'messenger-mode' : '',
-        settings.theme === 'messenger' ? `msg-narration-${settings.messenger.narrationStyle}` : '',
-        // 이름·프로필 표시 여부는 드래그 말풍선도 따르므로 테마를 가리지 않는다
-        settings.messenger.showProfile ? 'msg-profile' : '',
-        settings.messenger.showName ? 'msg-name' : '',
+        settings.bubble.showProfile ? 'bub-profile' : '',
+        settings.bubble.showName ? 'bub-name' : '',
       ].filter(Boolean).join(' ')}
       style={frameStyle}
     >
