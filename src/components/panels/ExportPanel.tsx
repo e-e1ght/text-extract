@@ -181,7 +181,7 @@ export function ExportPanel({
         label="괄호 안은 작은 회색 글씨로"
         checked={settings.parenAside}
         onChange={(parenAside) => set('parenAside', parenAside)}
-        hint="( ) 안의 글을 대사보다 4px 작은 회색으로 바꾸고 괄호는 감춥니다"
+        hint="( ) 안의 글을 대사보다 2px 작은 회색으로 바꾸고 괄호는 감춥니다"
       />
       <Toggle
         label="붙여넣을 때 빈 줄 정리"

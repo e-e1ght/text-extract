@@ -78,10 +78,59 @@ export function Editor({
   const composingRef = useRef(false);
   const timerRef = useRef<number | undefined>(undefined);
 
+  /*
+   * 지운 자리에 감춰 둔 기호(*, 괄호)만 남았는지 본다.
+   *
+   * 브라우저의 지우기는 눈에 보이지 않는 것을 지울 것으로 치지 않는다. 그래서
+   * 본문을 모두 골라 지워도 줄 끝의 기호 한 글자가 살아남고, 다음 순간 서식이
+   * 풀리며 난데없는 `)` 로 되살아났다. 글이 하나도 남지 않은 셈이니 빈 본문으로 친다.
+   * (진짜 글이 한 글자라도 있으면 곧바로 빠져나오므로 타이핑 때 부담이 없다.)
+   */
+  const onlyHiddenMarksLeft = (root: HTMLElement): boolean => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let sawMark = false;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text = (node as Text).data;
+      if (!text) continue;
+      if ((node.parentElement as HTMLElement | null)?.closest('.te-mark, .te-paren-mark')) {
+        sawMark = true;
+        continue;
+      }
+      if (text.trim()) return false;
+    }
+    return sawMark;
+  };
+
   /** 역할 마크업을 다시 씌운다. 결과가 같으면 DOM 을 건드리지 않아 커서·되돌리기가 보존된다. */
   const remark = useCallback(() => {
     const root = rootRef.current;
     if (!root || composingRef.current) return;
+
+    /*
+     * 짝을 잃은 괄호 기호를 떨군다.
+     * 글의 일부만 골라 지우면, 감춰 둔 여는·닫는 기호 가운데 하나만 남는 일이
+     * 생긴다. 괄호 묶음은 언제나 기호 둘로 만들어지므로, 둘이 아니면 지우다 만
+     * 자리다 — 글은 두고 기호만 떨군다.
+     */
+    root.querySelectorAll('.te-paren').forEach((span) => {
+      const marks = span.querySelectorAll('.te-paren-mark');
+      if (marks.length === 2) return;
+      marks.forEach((mark) => mark.remove());
+    });
+
+    if (onlyHiddenMarksLeft(root)) {
+      const line = document.createElement('div');
+      line.appendChild(document.createElement('br'));
+      root.replaceChildren(line);
+      const caret = document.createRange();
+      caret.setStart(line, 0);
+      caret.collapse(true);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(caret);
+      rememberSelection(root);
+      return;
+    }
 
     const probe = root.cloneNode(true) as HTMLDivElement;
     markupRoles(probe);
@@ -173,6 +222,27 @@ export function Editor({
       aria-label="본문"
       onInput={scheduleWork}
       onKeyDown={(event) => {
+        const root = rootRef.current;
+        if (!root) return;
+
+        /*
+         * 전체 선택(Ctrl/Cmd+A)은 우리가 직접 잡는다.
+         * 브라우저의 전체 선택은 감춰 둔 기호(*, 괄호)를 건너뛴다. 그래서 본문을
+         * 모두 지워도 줄 끝의 기호 한 글자가 살아남아, 다음 순간 서식이 풀리며
+         * 난데없는 `)` 로 되살아났다. 본문 전체를 범위로 잡으면 감춘 것까지 딸려 온다.
+         */
+        if ((event.ctrlKey || event.metaKey) && !event.altKey
+            && event.key.toLowerCase() === 'a' && !composingRef.current) {
+          event.preventDefault();
+          const all = document.createRange();
+          all.selectNodeContents(root);
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(all);
+          rememberSelection(root);
+          return;
+        }
+
         /*
          * 말풍선·대본 안에서 Enter 를 누르면 그 밖 새 줄로 빠져나온다.
          * 그냥 두면 브라우저가 상자를 통째로 복제해 아래 줄까지 말풍선이 된다
@@ -180,8 +250,6 @@ export function Editor({
          * 상자 안에서 줄을 바꾸려면 Shift+Enter 를 쓴다.
          */
         if (event.key !== 'Enter' || event.shiftKey || composingRef.current) return;
-        const root = rootRef.current;
-        if (!root) return;
         const block = blockAtSelection(root);
         if (!block) return;
         event.preventDefault();
