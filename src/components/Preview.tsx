@@ -211,6 +211,9 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
     ['--te-emph-style' as string]: roles.emphasisItalic ? 'italic' : 'normal',
     ['--te-dialogue-style' as string]: roles.dialogueItalic ? 'italic' : 'normal',
     ['--te-dialogue-size' as string]: `${typography.dialogueFontSize}px`,
+    /* 곁말: 대사보다 4px 작게, 회색으로. 크기는 대사 크기를 따라 움직인다 */
+    ['--te-paren-size' as string]: `${Math.max(1, typography.dialogueFontSize - 4)}px`,
+    ['--te-paren' as string]: '#8a8a93',
     ['--te-paragraph-gap' as string]: `${typography.paragraphGap}px`,
     // 드래그해서 만드는 말풍선
     ['--bub-radius' as string]: `${settings.bubble.bubbleRadius}px`,
@@ -264,6 +267,7 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
         'te-capture',
         roles.enabled ? '' : 'roles-off',
         settings.hideEmphasisMarks ? 'hide-marks' : '',
+        settings.parenAside ? 'paren-aside' : '',
         settings.bubble.showProfile ? 'bub-profile' : '',
         settings.bubble.showName ? 'bub-name' : '',
       ].filter(Boolean).join(' ')}

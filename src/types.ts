@@ -159,6 +159,8 @@ export interface Settings {
   tidyBlankLines: boolean;
   /** 결과물에서 *…* 의 별표를 감춘다 (강조 서식은 그대로) */
   hideEmphasisMarks: boolean;
+  /** (…) 안을 대사보다 작은 회색 글씨로 바꾸고 괄호를 감춘다 */
+  parenAside: boolean;
   typography: Typography;
   roles: RoleColors;
   background: Background;

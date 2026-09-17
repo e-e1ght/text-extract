@@ -514,8 +514,29 @@ body {
   font-weight: 600;
 }
 .te-mark { color: var(--te-box-ink, var(--te-ink, var(--te-emph))); font-size: var(--te-size, inherit); }
-/* 별표는 자리까지 없애야 결과물이 깔끔하다 */
-.te-capture.hide-marks .te-mark { display: none; }
+/*
+ * 감춘 기호는 display:none 이 아니라 '크기 0' 으로 둔다.
+ * display:none 이면 브라우저의 전체 선택이 그 기호를 건너뛰어, 본문을 모두
+ * 지워도 줄 끝의 * 나 ) 한 글자가 살아남았다. 크기 0 이면 자리도 차지하지
+ * 않으면서 선택·삭제에는 그대로 딸려 온다.
+ */
+.te-capture.hide-marks .te-mark { font-size: 0; letter-spacing: 0; }
+
+/*
+ * (…) 곁말.
+ * 꺼 두면 서술과 한 글자도 다르지 않아야 하므로 기본값은 서술과 똑같이 두고,
+ * '괄호 안 작게' 를 켤 때만 달라집니다. 대사 구분(roles-off)을 끈 상태에서는
+ * 이 서식도 함께 물러납니다 — 괄호까지 감추면 글자가 소리 없이 사라지니까요.
+ */
+.te-paren {
+  color: var(--te-box-ink, var(--te-ink, var(--te-narration)));
+  font-size: var(--te-size, inherit);
+}
+.te-capture.paren-aside:not(.roles-off) .te-paren {
+  color: var(--te-box-ink, var(--te-ink, var(--te-paren)));
+  font-size: var(--te-size, var(--te-paren-size, inherit));
+}
+.te-capture.paren-aside:not(.roles-off) .te-paren-mark { font-size: 0; letter-spacing: 0; }
 
 .bg-drag {
   position: absolute;
@@ -545,6 +566,7 @@ body {
 .roles-off .te-narration,
 .roles-off .te-emph,
 .roles-off .te-mark,
+.roles-off .te-paren,
 .roles-off .te-name {
   color: inherit;
   font-style: normal;
@@ -738,12 +760,13 @@ body {
 .te-script {
   display: flex;
   align-items: baseline;
-  gap: 1.6em;
+  /* 이름 칸(3.4em) + 이 간격(1em) 이 눈에 보이는 사이 거리다 */
+  gap: 1em;
   text-indent: 0;
 }
 .te-script-name {
   flex: 0 0 auto;
-  min-width: 5em;
+  min-width: 3.4em;
   font-weight: 600;
   color: var(--te-name-ink, var(--te-name));
 }

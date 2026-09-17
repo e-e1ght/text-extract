@@ -42,6 +42,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoParse: true,
   tidyBlankLines: true,
   hideEmphasisMarks: true,
+  parenAside: true,
   typography: {
     fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
     fontWeight: 400,

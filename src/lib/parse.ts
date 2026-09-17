@@ -2,6 +2,7 @@
  * 대사 / 서술 인식 규칙
  *  - 따옴표( " “ ” 「」 『』 ) 안의 텍스트는 대사. 줄바꿈을 넘어가도 닫힐 때까지 대사로 본다.
  *  - *…* 또는 **…** 안의 텍스트는 강조 서술.
+ *  - (…) 안의 텍스트는 곁말. '괄호 안 작게' 를 켜면 작은 회색 글씨가 된다.
  *  - 그 외 텍스트는 서술.
  *  - 줄 머리의 `이름:` 은 캐릭터 이름으로 본다.
  */
@@ -18,7 +19,7 @@ const CLOSE_ONLY = new Set(['\u201D', '\u300D', '\u300F']);
 /** 줄 머리 캐릭터 이름: `세인:` / `세인 :` — 이름은 20자 이내, 따옴표를 포함하지 않는다 */
 const NAME_RE = /^([^\n:："'“”]{1,20})\s*[:：]/;
 
-export type Role = 'dialogue' | 'narration' | 'emph' | 'name' | 'mark';
+export type Role = 'dialogue' | 'narration' | 'emph' | 'name' | 'mark' | 'paren';
 
 interface Piece {
   text: string;
@@ -97,6 +98,22 @@ export function scanText(text: string, state: ScanState): Piece[] {
       continue;
     }
 
+    /*
+     * (…) 곁말. *…* 과 같은 규칙으로 '같은 줄에서 닫힐 때만' 본다 —
+     * 여는 괄호를 막 입력한 순간 뒷글자가 통째로 작아지지 않게 하기 위함.
+     */
+    if (ch === '(' || ch === '\uFF08') {
+      const closeAt = text.slice(index + 1).search(/[)\uFF09]/);
+      if (closeAt >= 0) {
+        flush();
+        const end = index + 1 + closeAt + 1;
+        pieces.push({ text: text.slice(index, end), role: 'paren', speaker: state.speaker });
+        bufferRole = state.emph ? 'emph' : 'narration';
+        index = end;
+        continue;
+      }
+    }
+
     if (ch === '*') {
       const marker = text[index + 1] === '*' ? '**' : '*';
 
@@ -154,6 +171,7 @@ const CLASS_BY_ROLE: Record<Role, string> = {
   emph: 'te-emph',
   name: 'te-name',
   mark: 'te-mark',
+  paren: 'te-paren',
 };
 
 /**
@@ -165,7 +183,9 @@ const CLASS_BY_ROLE: Record<Role, string> = {
  */
 export function unwrapRoles(root: HTMLElement): void {
   // 이름 구분 기호 래퍼도 함께 벗긴다 — 남겨 두면 `이름:` 패턴이 끊겨 다시 인식되지 않는다.
-  const marked = root.querySelectorAll<HTMLElement>('[data-te-role], .te-namesep, .te-quote');
+  const marked = root.querySelectorAll<HTMLElement>(
+    '[data-te-role], .te-namesep, .te-quote, .te-paren-mark',
+  );
   marked.forEach((el) => {
     const parent = el.parentNode;
     if (!parent) return;
@@ -301,6 +321,11 @@ export function markupRoles(root: HTMLElement): void {
         if (hasTail) text = text.slice(0, -1);
         span.appendChild(document.createTextNode(text));
         if (hasTail) span.appendChild(markSpan('te-quote', tail));
+      } else if (piece.role === 'paren') {
+        // 괄호 기호만 따로 감싸 둔다 — 글은 남기고 기호만 감출 수 있게.
+        span.appendChild(markSpan('te-paren-mark', piece.text[0]));
+        span.appendChild(document.createTextNode(piece.text.slice(1, -1)));
+        span.appendChild(markSpan('te-paren-mark', piece.text[piece.text.length - 1]));
       } else {
         span.textContent = piece.text;
       }

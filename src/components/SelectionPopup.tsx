@@ -26,6 +26,7 @@ const ROLE_LABEL: Record<Role, string> = {
   name: '이름',
   emph: '강조 서술',
   mark: '강조 서술',
+  paren: '괄호 안',
 };
 
 const TEXT_SWATCHES = ['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8', '#8b5a2b', '#8a8a95'];
