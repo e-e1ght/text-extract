@@ -97,7 +97,8 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
               </label>
             </div>
 
-            <div className="character-grid">
+            {/* 색 셋은 한 줄에, 버튼 둘은 그 아래 한 줄에 — 칸 수가 달라 따로 짠다 */}
+            <div className="character-colors">
               <label className="char-field">
                 <span>이름</span>
                 <input
@@ -114,7 +115,6 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
                   onChange={(event) => upsertCharacter(character.name, { dialogueColor: event.target.value })}
                 />
               </label>
-
               <label className="char-field">
                 <span>말풍선</span>
                 <input
@@ -123,25 +123,23 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
                   onChange={(event) => upsertCharacter(character.name, { bubbleColor: event.target.value })}
                 />
               </label>
+            </div>
 
-              <div className="char-field char-action">
-                <FileButton
-                  label={character.avatar ? '프로필 바꾸기' : '프로필'}
-                  accept="image/*"
-                  onPick={async (file) => {
-                    upsertCharacter(character.name, { avatar: await readFileAsDataUrl(file) });
-                  }}
-                />
-              </div>
-              <div className="char-field char-action">
-                <button
-                  type="button"
-                  className="mini-button danger"
-                  onClick={() => removeCharacter(character.name)}
-                >
-                  삭제
-                </button>
-              </div>
+            <div className="character-actions">
+              <FileButton
+                label={character.avatar ? '프로필 사진 바꾸기' : '프로필 사진'}
+                accept="image/*"
+                onPick={async (file) => {
+                  upsertCharacter(character.name, { avatar: await readFileAsDataUrl(file) });
+                }}
+              />
+              <button
+                type="button"
+                className="mini-button danger"
+                onClick={() => removeCharacter(character.name)}
+              >
+                삭제
+              </button>
             </div>
 
             {character.avatar || character.dialogueColor
@@ -150,7 +148,7 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
                 {character.avatar ? (
                   <button type="button" className="mini-button"
                     onClick={() => upsertCharacter(character.name, { avatar: '' })}>
-                    프로필 지우기
+                    프로필 사진 지우기
                   </button>
                 ) : null}
                 {character.dialogueColor || character.bubbleColor ? (
