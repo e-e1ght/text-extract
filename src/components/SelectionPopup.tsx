@@ -2,9 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { BAR_SWATCHES, FONT_OPTIONS, HIGHLIGHT_SWATCHES } from '../defaults';
 import {
   alignImage, applyBar, applyBubble, applyFontFamily, applyFontSize, applyHighlight,
-  applyTextColor, barAtSelection, bubbleAtSelection, clearHighlight, hasSelectionInside,
-  queryInline, removeBubble, removeFormatting, selectionImage, selectionRole, selectionText,
-  toggleInline, type ImageAlign, type InlineCommand,
+  applyScript, applyTextColor, barAtSelection, blockAtSelection, clearHighlight,
+  hasSelectionInside, queryInline, removeBlock, removeFormatting, selectionImage,
+  selectionRole, selectionText, toggleInline,
+  type BlockKind, type ImageAlign, type InlineCommand,
 } from '../lib/format';
 import { fontFamilyOf } from '../lib/fonts';
 import type { Role } from '../lib/parse';
@@ -29,7 +30,9 @@ const ROLE_LABEL: Record<Role, string> = {
 
 const TEXT_SWATCHES = ['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8', '#8b5a2b', '#8a8a95'];
 
-type Panel = 'none' | 'color' | 'highlight' | 'size' | 'character' | 'bubble' | 'font' | 'bar' | 'image';
+type Panel =
+  | 'none' | 'color' | 'highlight' | 'size' | 'character'
+  | 'bubble' | 'script' | 'font' | 'bar' | 'image';
 /** 색을 '이 선택 영역만' 바꿀지, '같은 역할 전체'에 적용할지 */
 type ColorScope = 'role' | 'selection';
 
@@ -52,7 +55,8 @@ export function SelectionPopup({
    */
   const lastRange = useRef<Range | null>(null);
   const [bubbleSpeaker, setBubbleSpeaker] = useState('');
-  const [inBubble, setInBubble] = useState(false);
+  /** 커서가 이미 말풍선/대본 안에 있으면 '만들기' 대신 '바꾸기·풀기' 를 보여준다 */
+  const [inBlock, setInBlock] = useState<BlockKind | null>(null);
 
   /*
    * 위치는 화면(뷰포트) 좌표를 그대로 쓰고, CSS 는 position: fixed 다.
@@ -110,9 +114,9 @@ export function SelectionPopup({
     setRole(selectionRole(editorRoot));
     setPicked(selectionText());
     setPickedImage(selectionImage(editorRoot));
-    const bubble = bubbleAtSelection(editorRoot);
-    setInBubble(Boolean(bubble));
-    if (bubble?.dataset.teSpeaker) setBubbleSpeaker(bubble.dataset.teSpeaker);
+    const block = blockAtSelection(editorRoot);
+    setInBlock(block ? (block.classList.contains('te-script') ? 'script' : 'bubble') : null);
+    if (block?.dataset.teSpeaker) setBubbleSpeaker(block.dataset.teSpeaker);
   }, [editorRoot, boundary, zoom]);
 
   // 하위 패널을 여닫으면 팝업 높이가 달라진다 — 그리자마자 자리를 다시 잡는다.
@@ -165,11 +169,11 @@ export function SelectionPopup({
   ];
   const characterNames = Object.keys(settings.characters);
 
-  const makeBubble = () => {
-    // 이미 말풍선이면 먼저 풀어 낸 뒤 새 인물로 다시 감싼다.
+  const makeBlock = (kind: BlockKind) => {
+    // 이미 상자 안이면 먼저 풀어 낸 뒤 새 인물로 다시 감싼다.
     // 풀면서 DOM 이 바뀌므로, 새로 생긴 요소를 다시 선택해 줘야 한다.
-    if (bubbleAtSelection(editorRoot)) {
-      const line = removeBubble(editorRoot);
+    if (blockAtSelection(editorRoot)) {
+      const line = removeBlock(editorRoot);
       if (!line) return;
       const sel = window.getSelection();
       const range = document.createRange();
@@ -178,8 +182,10 @@ export function SelectionPopup({
       sel?.addRange(range);
       lastRange.current = range.cloneRange();
     }
-    // 색·프로필·좌우는 CSS 가 캐릭터 이름을 보고 붙인다 — 여기서는 이름만 넘긴다.
-    applyBubble(bubbleSpeaker, Boolean(settings.characters[bubbleSpeaker]));
+    // 색·프로필은 CSS 가 캐릭터 이름을 보고 붙인다 — 여기서는 이름만 넘긴다.
+    const registered = Boolean(settings.characters[bubbleSpeaker]);
+    if (kind === 'script') applyScript(bubbleSpeaker, registered);
+    else applyBubble(bubbleSpeaker, registered);
     setPanel('none');
   };
 
@@ -262,6 +268,7 @@ export function SelectionPopup({
             이미지
           </button>
         ) : null}
+        <span className="popup-divider" />
         <button
           type="button"
           title="말풍선으로 만들기"
@@ -270,6 +277,15 @@ export function SelectionPopup({
         >
           말풍선
         </button>
+        <button
+          type="button"
+          title="대본 형식으로 만들기 (이름과 대사를 나란히)"
+          className={`popup-btn ${panel === 'script' ? 'is-active' : ''}`}
+          onClick={() => setPanel((v) => (v === 'script' ? 'none' : 'script'))}
+        >
+          대본
+        </button>
+        <span className="popup-divider" />
         <button
           type="button"
           title="선택한 글자를 캐릭터로 지정"
@@ -433,14 +449,14 @@ export function SelectionPopup({
         </div>
       ) : null}
 
-      {panel === 'bubble' ? (
+      {panel === 'bubble' || panel === 'script' ? (
         <div className="popup-sub popup-sub-column">
           <select
             className="popup-select"
             value={bubbleSpeaker}
             onChange={(event) => setBubbleSpeaker(event.target.value)}
           >
-            <option value="">인물 없음 (말풍선만)</option>
+            <option value="">인물 없음</option>
             {characterNames.map((name) => (
               <option key={name} value={name}>{name}</option>
             ))}
@@ -450,27 +466,31 @@ export function SelectionPopup({
               type="button"
               className="popup-btn slim"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => withSelection(makeBubble)}
+              onClick={() => withSelection(() => makeBlock(panel === 'script' ? 'script' : 'bubble'))}
             >
-              {inBubble ? '인물 바꾸기' : '말풍선으로 만들기'}
+              {inBlock === panel ? '인물 바꾸기' : panel === 'script' ? '대본으로 만들기' : '말풍선으로 만들기'}
             </button>
-            {inBubble ? (
+            {inBlock ? (
               <button
                 type="button"
                 className="popup-btn slim"
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={() => withSelection(() => { removeBubble(editorRoot); setPanel('none'); })}
+                onClick={() => withSelection(() => { removeBlock(editorRoot); setPanel('none'); })}
               >
-                말풍선 풀기
+                {inBlock === 'script' ? '대본 풀기' : '말풍선 풀기'}
               </button>
             ) : null}
           </div>
           <p className="popup-note">
             {characterNames.length === 0
-              ? '캐릭터를 먼저 추가하면 이름·프로필·색이 함께 붙습니다.'
-              : bubbleSpeaker
-                ? '이 캐릭터의 색·프로필·이름이 함께 붙습니다.'
-                : '인물을 고르지 않으면 말풍선만 남습니다.'}
+              ? '캐릭터를 먼저 추가하면 이름과 색이 함께 붙습니다.'
+              : panel === 'script'
+                ? bubbleSpeaker
+                  ? '이름과 대사가 나란히 놓이고, 그 캐릭터의 이름·대사 색을 씁니다.'
+                  : '인물을 고르면 이름이 앞에 붙습니다.'
+                : bubbleSpeaker
+                  ? '이 캐릭터의 색·프로필·이름이 함께 붙습니다.'
+                  : '인물을 고르지 않으면 말풍선만 남습니다.'}
           </p>
         </div>
       ) : null}

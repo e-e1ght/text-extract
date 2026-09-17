@@ -17,6 +17,9 @@ export function BubblePanel({ detectedNames }: { detectedNames: string[] }) {
         본문에서 대사를 드래그하고 팝업의 <strong>말풍선</strong> 버튼을 누르면
         말풍선이 됩니다. 인물을 고르면 그 캐릭터의 색·프로필·이름이 함께 붙습니다.
         아래 값은 말풍선 전체에 적용됩니다.
+        <br />
+        같은 자리의 <strong>대본</strong> 버튼은 <code>이름　대사</code> 처럼 두 칸으로
+        나란히 놓습니다. 말풍선 색은 쓰지 않고 캐릭터의 이름·대사 색만 씁니다.
       </Hint>
           <ColorField label="말풍선 색" value={bubble.bubbleColor}
             onChange={(bubbleColor) => patch('bubble', { bubbleColor })} />

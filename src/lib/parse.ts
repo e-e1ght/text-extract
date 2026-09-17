@@ -230,7 +230,18 @@ export function markupRoles(root: HTMLElement): void {
   wrapLooseFirstLine(root);
 
   const state = createScanState();
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  const walker = document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+    {
+      // 말풍선·대본의 이름표는 우리가 붙인 표지지 사용자가 쓴 글이 아니다.
+      acceptNode: (node) => (
+        node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).dataset?.teLabel === 'true'
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_ACCEPT
+      ),
+    },
+  );
   const textNodes: Text[] = [];
   const boundaries = new Set<Text>();
   let pendingBoundary = true;

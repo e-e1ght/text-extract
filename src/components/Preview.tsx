@@ -16,22 +16,28 @@ function characterCss(settings: Settings): string {
     .map((character) => {
       const name = escapeAttr(character.name);
       const bubble = `.te-capture .te-bubble[data-te-speaker="${name}"]`;
+      const script = `.te-capture .te-script[data-te-speaker="${name}"]`;
+
       /*
-       * 이름 색만은 드래그로 준 색(--te-ink)에 양보하지 않는다.
+       * 캐릭터 색은 드래그로 준 색(--te-ink)에 양보하지 않는다.
        *
-       * 본문을 통째로 드래그해 색을 바꾸면 이름까지 휩쓸리는데, 그러면 캐릭터
-       * 이름 색을 아무리 바꿔도 먹지 않고 되돌릴 방법도 없었다.
-       * 이름은 '누가 말하는가' 를 알려 주는 표지라 캐릭터 설정이 정하는 게 맞다.
-       * (대사는 그대로 둔다 — 한 문장만 다른 색으로 강조하는 일이 실제로 있다.)
+       * 캐릭터를 따로 두는 까닭이 색을 분리하는 것인데, 본문을 통째로 드래그해
+       * 색을 바꾸면 캐릭터 색이 전부 묻혔다. 그 뒤로는 캐릭터 카드에서 아무리
+       * 바꿔도 먹지 않고 되돌릴 방법도 없었다.
+       * 캐릭터의 글자색을 바꾸려면 캐릭터 카드에서 바꾼다 — 자리가 하나뿐이라야
+       * 헷갈리지 않는다.
        */
       const rules = [
         `.te-capture [data-te-role="name"][data-te-speaker="${name}"],`
-        + `${bubble} .te-bubble-name`
+        + `${bubble} .te-bubble-name,`
+        + `${script} .te-script-name`
         + `{color:${character.color};}`,
       ];
       if (character.dialogueColor) {
         rules.push(
-          `.te-capture [data-te-role="dialogue"][data-te-speaker="${name}"]{color:var(--te-ink,${character.dialogueColor});}`,
+          `.te-capture [data-te-role="dialogue"][data-te-speaker="${name}"],`
+          + `${script} .te-script-text`
+          + `{color:${character.dialogueColor};}`,
         );
       }
 
@@ -47,7 +53,7 @@ function characterCss(settings: Settings): string {
           `${bubble} .te-bubble-name{flex-direction:row-reverse;}`,
           `${bubble} .te-bubble-text{`
           + `border-radius:var(--bub-radius) var(--bub-tail) var(--bub-radius) var(--bub-radius);`
-          + `background:var(--bub-my-bg);color:var(--te-ink,var(--bub-my-fg));}`,
+          + `background:var(--bub-my-bg);color:var(--bub-my-fg);}`,
           `.te-capture.bub-profile ${bubble.slice('.te-capture '.length)} .te-bubble-text`
           + `{margin-left:0;margin-right:calc(var(--bub-avatar) + 8px);}`,
         );
@@ -56,23 +62,25 @@ function characterCss(settings: Settings): string {
         rules.push(`${bubble} .te-bubble-text{background:${character.bubbleColor};}`);
       }
       if (character.bubbleTextColor) {
-        rules.push(`${bubble} .te-bubble-text{color:var(--te-ink,${character.bubbleTextColor});}`);
+        rules.push(`${bubble} .te-bubble-text{color:${character.bubbleTextColor};}`);
       }
       if (character.avatar) {
         rules.push(`${bubble} .te-bubble-name::before{background-image:url("${character.avatar}");}`);
       }
       /*
-       * `이름: "대사"` 를 통째로 드래그해 말풍선으로 만들면 이름이 두 번 나온다
-       * (말풍선 이름표 + 본문 속 `이름:`). 같은 인물일 때만 본문 쪽을 감춘다.
-       * 뒤따르는 빈칸도 함께 — 남겨 두면 말풍선 글이 한 칸 밀린다.
+       * `이름: "대사"` 를 통째로 드래그해 상자로 만들면 이름이 두 번 나온다
+       * (이름표 + 본문 속 `이름:`). 같은 인물일 때만 본문 쪽을 감춘다.
+       * 뒤따르는 빈칸도 함께 — 남겨 두면 글이 한 칸 밀린다.
        */
-      rules.push(
-        `.te-capture.bub-name ${bubble.slice('.te-capture '.length)} .te-bubble-text`
-        + ` [data-te-role="name"][data-te-speaker="${name}"],`
-        + `.te-capture.bub-name ${bubble.slice('.te-capture '.length)} .te-bubble-text`
-        + ` [data-te-role="narration"][data-te-blank][data-te-speaker="${name}"]`
-        + `{display:none;}`,
-      );
+      for (const [box, body] of [[bubble, '.te-bubble-text'], [script, '.te-script-text']]) {
+        rules.push(
+          `.te-capture.bub-name ${box.slice('.te-capture '.length)} ${body}`
+          + ` [data-te-role="name"][data-te-speaker="${name}"],`
+          + `.te-capture.bub-name ${box.slice('.te-capture '.length)} ${body}`
+          + ` [data-te-role="narration"][data-te-blank][data-te-speaker="${name}"]`
+          + `{display:none;}`,
+        );
+      }
       return rules.join('');
     })
     .join('');
@@ -224,8 +232,11 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
     ['--bub-avatar' as string]: `${settings.bubble.profileSize}px`,
     ['--bub-max' as string]: `${settings.bubble.bubbleMaxWidth}%`,
     ['--bub-gap' as string]: `${settings.bubble.gap}px`,
-    // 꼬리 쪽 모서리는 아예 각지게 — 조금이라도 둥글리면 꼬리로 보이지 않는다
-    ['--bub-tail' as string]: '0px',
+    /*
+     * 꼬리 쪽 모서리. 각지면 꼬리로 보이고, 둥글면 그냥 둥근 상자가 된다.
+     * 2px 는 '깎다 만' 정도라 꼬리는 그대로 보이면서 날카롭지 않다.
+     */
+    ['--bub-tail' as string]: '2px',
   };
 
   const contentStyle: CSSProperties = {

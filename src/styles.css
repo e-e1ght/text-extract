@@ -693,6 +693,32 @@ body {
 .te-capture:not(.bub-name) .te-bubble-name { display: none; }
 .te-capture:not(.bub-profile) .te-bubble[data-te-speaker] .te-bubble-name::before { display: none; }
 
+/* ------------------------------------------------------------------ */
+/* 대본 — 이름과 대사를 나란히                                           */
+/* ------------------------------------------------------------------ */
+/*
+ * 진짜 대본처럼 이름 칸과 대사 칸을 나눕니다.
+ * 특수문자로 띄우지 않고 칸으로 나누므로, 대사가 길어 줄이 넘어가도
+ * 둘째 줄이 이름 아래로 파고들지 않고 대사 칸에 가지런히 붙습니다.
+ * 이름이 길면 그 줄만 밀려날 뿐 잘리지는 않습니다.
+ */
+.te-script {
+  display: flex;
+  align-items: baseline;
+  gap: 1.6em;
+  text-indent: 0;
+}
+.te-script-name {
+  flex: 0 0 auto;
+  min-width: 5em;
+  font-weight: 600;
+  color: var(--te-name);
+}
+.te-script-text { flex: 1 1 auto; min-width: 0; }
+/* 이름 표시를 끄면 대사만 남는다 (말풍선과 같은 스위치를 쓴다) */
+.te-capture:not(.bub-name) .te-script-name { display: none; }
+.te-capture:not(.bub-name) .te-script { gap: 0; }
+
 /* 장식용 구분선 */
 .te-rule {
   height: 0;

@@ -3,7 +3,7 @@ import { collapseBlankLines, markupRoles } from '../lib/parse';
 import { restoreCaret, saveCaret } from '../lib/caret';
 import { ensureWebFont } from '../lib/webfonts';
 import {
-  bubbleAtSelection, insertPlainText, rememberSelection, selectImage, selectionImage,
+  blockAtSelection, insertPlainText, rememberSelection, selectImage, selectionImage,
   syncInlineVars,
 } from '../lib/format';
 
@@ -13,6 +13,22 @@ import {
  * innerText 를 쓰면 화면에서 감춘 강조 기호(*)까지 빠져 버려,
  * 어디가 강조인지 알 수 없게 된다. 그래서 직접 훑는다.
  */
+/**
+ * 이름표(`data-te-label`)를 뺀 글자만 모은다.
+ *
+ * 말풍선·대본이 달고 있는 이름표는 우리가 붙인 표지지 사용자가 쓴 글이 아니다.
+ * 그대로 읽으면 `세인: 세인"대사"` 가 되어 대사·이름 인식이 어긋난다.
+ */
+function textOf(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) return (node as Text).data;
+  if (node.nodeType !== Node.ELEMENT_NODE) return '';
+  const el = node as HTMLElement;
+  if (el.dataset.teLabel === 'true') return '';
+  let out = '';
+  for (const child of Array.from(el.childNodes)) out += textOf(child);
+  return out;
+}
+
 export function readPlainText(root: HTMLElement): string {
   const lines: string[] = [];
   let current = '';
@@ -27,10 +43,10 @@ export function readPlainText(root: HTMLElement): string {
     if (el.tagName === 'BR') { flush(); continue; }
     if (el.tagName === 'DIV' || el.tagName === 'P' || el.tagName === 'LI') {
       if (current) flush();
-      lines.push(el.textContent ?? '');
+      lines.push(textOf(el));
       continue;
     }
-    current += el.textContent ?? '';
+    current += textOf(el);
   }
   if (current) flush();
   return lines.join('\n');
@@ -158,20 +174,20 @@ export function Editor({
       onInput={scheduleWork}
       onKeyDown={(event) => {
         /*
-         * 말풍선 안에서 Enter 를 누르면 말풍선 밖 새 줄로 빠져나온다.
-         * 그냥 두면 브라우저가 말풍선을 통째로 복제해 아래 줄까지 말풍선이 된다
-         * (말풍선이 div 라 줄 안에 블록이 들어앉는 탓이다).
-         * 말풍선 안에서 줄을 바꾸려면 Shift+Enter 를 쓴다.
+         * 말풍선·대본 안에서 Enter 를 누르면 그 밖 새 줄로 빠져나온다.
+         * 그냥 두면 브라우저가 상자를 통째로 복제해 아래 줄까지 말풍선이 된다
+         * (상자가 div 라 줄 안에 블록이 들어앉는 탓이다).
+         * 상자 안에서 줄을 바꾸려면 Shift+Enter 를 쓴다.
          */
         if (event.key !== 'Enter' || event.shiftKey || composingRef.current) return;
         const root = rootRef.current;
         if (!root) return;
-        const bubble = bubbleAtSelection(root);
-        if (!bubble) return;
+        const block = blockAtSelection(root);
+        if (!block) return;
         event.preventDefault();
 
-        // 말풍선이 들어 있는 '줄'(에디터의 바로 아래 자식)을 찾아 그 뒤에 새 줄을 넣는다.
-        let line: Node = bubble;
+        // 상자가 들어 있는 '줄'(에디터의 바로 아래 자식)을 찾아 그 뒤에 새 줄을 넣는다.
+        let line: Node = block;
         while (line.parentNode && line.parentNode !== root) line = line.parentNode;
         const next = document.createElement('div');
         next.appendChild(document.createElement('br'));

@@ -218,32 +218,40 @@ export function alignImage(image: HTMLImageElement, align: ImageAlign): void {
 }
 
 /**
- * 드래그한 글을 말풍선으로 바꾼다.
- * 등록된 캐릭터면 이름과 프로필을 함께 보여주고, 아니면 말풍선만 남긴다.
+ * 드래그한 글을 말풍선 또는 대본 줄로 바꾼다.
  *
- * 겉모양은 여기서 정하지 않는다. `data-te-speaker` 만 달아 두면 말풍선 패널의 값과
- * 캐릭터별 색이 CSS 로 걸린다. 색을 요소에 박아 두면 나중에 캐릭터 색을 바꿔도
- * 이미 만들어 둔 말풍선이 따라오지 않는다.
+ * 둘은 겉모양만 다르고 얼개가 같다 — 겉을 감싸는 상자 + 이름표 + 본문.
+ * 겉모양은 여기서 정하지 않는다. `data-te-speaker` 만 달아 두면 캐릭터별 색이
+ * CSS 로 걸린다. 색을 요소에 박아 두면 나중에 캐릭터 색을 바꿔도 따라오지 않는다.
+ *
+ * 이름표에는 `data-te-label` 을 단다. 우리가 붙인 표지지 사용자가 쓴 글이 아니므로,
+ * 본문을 평문으로 읽거나 역할을 다시 인식할 때 건너뛰어야 한다.
+ * (그러지 않으면 `세인: 세인"대사"` 처럼 이름이 두 번 읽혀 인식이 어긋난다.)
  */
-export function applyBubble(speaker: string, registered: boolean): void {
+export type BlockKind = 'bubble' | 'script';
+
+const BLOCK_CLASS: Record<BlockKind, string> = { bubble: 'te-bubble', script: 'te-script' };
+
+function wrapSelection(kind: BlockKind, speaker: string, registered: boolean): void {
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
   const range = sel.getRangeAt(0);
 
   const wrap = document.createElement('div');
-  wrap.className = 'te-bubble';
+  wrap.className = BLOCK_CLASS[kind];
   if (speaker) wrap.dataset.teSpeaker = speaker;
 
   if (registered && speaker) {
     const name = document.createElement('span');
-    name.className = 'te-bubble-name';
+    name.className = `${BLOCK_CLASS[kind]}-name`;
+    name.dataset.teLabel = 'true';
     name.contentEditable = 'false';
     name.textContent = speaker;
     wrap.appendChild(name);
   }
 
   const body = document.createElement('span');
-  body.className = 'te-bubble-text';
+  body.className = `${BLOCK_CLASS[kind]}-text`;
   try {
     body.appendChild(range.extractContents());
   } catch {
@@ -258,31 +266,42 @@ export function applyBubble(speaker: string, registered: boolean): void {
   sel.addRange(next);
 }
 
-export function bubbleAtSelection(root: HTMLElement | null): HTMLElement | null {
+export function applyBubble(speaker: string, registered: boolean): void {
+  wrapSelection('bubble', speaker, registered);
+}
+
+export function applyScript(speaker: string, registered: boolean): void {
+  wrapSelection('script', speaker, registered);
+}
+
+/** 커서가 든 말풍선/대본 상자. kind 를 주면 그 종류만 찾는다. */
+export function blockAtSelection(root: HTMLElement | null, kind?: BlockKind): HTMLElement | null {
   if (!root) return null;
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) return null;
+  const wanted = kind ? [BLOCK_CLASS[kind]] : Object.values(BLOCK_CLASS);
   let node: Node | null = sel.getRangeAt(0).commonAncestorContainer;
   while (node && node !== root) {
-    if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).classList.contains('te-bubble')) {
-      return node as HTMLElement;
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+      if (wanted.some((name) => el.classList.contains(name))) return el;
     }
     node = node.parentNode;
   }
   return null;
 }
 
-/** 말풍선을 풀고, 남은 글을 담은 요소를 돌려준다 (인물을 바꿔 다시 감쌀 때 쓴다). */
-export function removeBubble(root: HTMLElement): HTMLElement | null {
-  const bubble = bubbleAtSelection(root);
-  if (!bubble) return null;
-  const parent = bubble.parentNode;
+/** 상자를 풀고, 남은 글을 담은 요소를 돌려준다 (인물을 바꿔 다시 감쌀 때 쓴다). */
+export function removeBlock(root: HTMLElement, kind?: BlockKind): HTMLElement | null {
+  const block = blockAtSelection(root, kind);
+  if (!block) return null;
+  const parent = block.parentNode;
   if (!parent) return null;
-  bubble.querySelector('.te-bubble-name')?.remove();
-  const body = bubble.querySelector('.te-bubble-text');
+  block.querySelector('[data-te-label]')?.remove();
+  const body = block.querySelector('[class$="-text"]');
   const line = document.createElement('span');
   while (body?.firstChild) line.appendChild(body.firstChild);
-  parent.replaceChild(line, bubble);
+  parent.replaceChild(line, block);
   return line;
 }
 
@@ -417,9 +436,10 @@ export function pageBreakCount(root: HTMLElement | null): number {
 
 /** 본문에 적용된 모든 인라인 서식을 벗겨낸다 (역할 span 은 유지). */
 export function stripAllFormatting(root: HTMLElement): void {
-  root.querySelectorAll<HTMLElement>('.te-rule, .te-bubble-name').forEach((el) => el.remove());
+  root.querySelectorAll<HTMLElement>('.te-rule, [data-te-label]').forEach((el) => el.remove());
   root.querySelectorAll<HTMLElement>(
-    'b, strong, i, em, u, s, strike, font, span.te-bar, .te-bubble, .te-bubble-text',
+    'b, strong, i, em, u, s, strike, font, span.te-bar,'
+    + ' .te-bubble, .te-bubble-text, .te-script, .te-script-text',
   ).forEach((el) => {
     const parent = el.parentNode;
     if (!parent) return;
