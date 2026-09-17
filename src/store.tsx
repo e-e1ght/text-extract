@@ -14,6 +14,25 @@ const isPlainObject = (v: unknown): v is Plain =>
  * 저장된 설정을 기본값 위에 덮어쓴다. 기능이 추가되어 키가 늘어나도
  * 예전에 저장된 서식을 그대로 불러올 수 있게 하기 위함이다.
  */
+/**
+ * 새 캐릭터는 지금의 공통값을 **그대로 떠서** 시작한다.
+ *
+ * 비워 두고 공통값을 물려받게 하면, 나중에 공통 대사색·말풍선색을 바꿀 때
+ * 캐릭터 색까지 함께 끌려간다. 캐릭터를 따로 두는 까닭이 색을 분리하는 것이므로,
+ * 만드는 순간의 색을 제 값으로 갖는다.
+ */
+export function newCharacter(name: string, settings: Settings): CharacterStyle {
+  return {
+    name,
+    color: settings.roles.name,
+    dialogueColor: settings.roles.dialogue,
+    bubbleColor: settings.bubble.bubbleColor,
+    bubbleTextColor: settings.bubble.bubbleTextColor,
+    avatar: '',
+    isMe: false,
+  };
+}
+
 export function mergeSettings(base: Settings, incoming: unknown): Settings {
   const merge = (a: unknown, b: unknown): unknown => {
     if (!isPlainObject(a) || !isPlainObject(b)) return b === undefined ? a : b;
@@ -37,6 +56,19 @@ export function mergeSettings(base: Settings, incoming: unknown): Settings {
   if (isPlainObject(incoming) && isPlainObject((incoming as Plain).characters)) {
     result.characters = (incoming as unknown as Settings).characters;
   }
+
+  /*
+   * 예전 캐릭터는 색을 비워 두고 공통값을 물려받았다. 그래서 공통 대사색·말풍선색을
+   * 바꾸면 캐릭터 색까지 따라 바뀌었다. 지금 보이는 색을 제 값으로 굳혀 준다.
+   */
+  result.characters = Object.fromEntries(
+    Object.entries(result.characters ?? {}).map(([key, character]) => [key, {
+      ...character,
+      dialogueColor: character.dialogueColor || result.roles.dialogue,
+      bubbleColor: character.bubbleColor || result.bubble.bubbleColor,
+      bubbleTextColor: character.bubbleTextColor || result.bubble.bubbleTextColor,
+    }]),
+  );
   return result;
 }
 
@@ -134,10 +166,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const upsertCharacter = useCallback((name: string, value: Partial<CharacterStyle>) => {
     setSettingsState((prev) => {
-      const existing = prev.characters[name] ?? {
-        name, color: prev.roles.name, dialogueColor: '',
-        bubbleColor: '', bubbleTextColor: '', avatar: '', isMe: false,
-      };
+      const existing = prev.characters[name] ?? newCharacter(name, prev);
       return {
         ...prev,
         characters: { ...prev.characters, [name]: { ...existing, ...value, name } },

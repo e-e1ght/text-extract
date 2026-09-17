@@ -516,7 +516,7 @@ export function SelectionPopup({
               className="popup-btn slim"
               disabled={!picked || isCharacter}
               onClick={() => {
-                upsertCharacter(picked, { color: settings.roles.name });
+                upsertCharacter(picked, {});
                 setPanel('none');
               }}
             >

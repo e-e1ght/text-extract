@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { readFileAsDataUrl } from '../../lib/exporters';
-import { useStore } from '../../store';
+import { newCharacter, useStore } from '../../store';
 import { FileButton, Hint } from '../ui';
 
 /** 캐릭터 목록과 색상. 말풍선 모양과 함께 다루는 편이 자연스러워 말풍선 패널에 둔다. */
@@ -15,12 +15,7 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
   const registerAll = () => {
     setSettings((prev) => {
       const next = { ...prev.characters };
-      for (const name of missing) {
-        next[name] = {
-          name, color: prev.roles.name, dialogueColor: '',
-          bubbleColor: '', bubbleTextColor: '', avatar: '', isMe: false,
-        };
-      }
+      for (const name of missing) next[name] = newCharacter(name, prev);
       return { ...prev, characters: next };
     });
   };
@@ -35,7 +30,7 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
 
   const add = () => {
     if (!newName.trim()) return;
-    upsertCharacter(newName.trim(), { color: roles.name });
+    upsertCharacter(newName.trim(), {});
     setNewName('');
   };
 

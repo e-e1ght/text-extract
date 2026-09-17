@@ -16,14 +16,18 @@ function characterCss(settings: Settings): string {
     .map((character) => {
       const name = escapeAttr(character.name);
       const bubble = `.te-capture .te-bubble[data-te-speaker="${name}"]`;
+      /*
+       * 이름 색만은 드래그로 준 색(--te-ink)에 양보하지 않는다.
+       *
+       * 본문을 통째로 드래그해 색을 바꾸면 이름까지 휩쓸리는데, 그러면 캐릭터
+       * 이름 색을 아무리 바꿔도 먹지 않고 되돌릴 방법도 없었다.
+       * 이름은 '누가 말하는가' 를 알려 주는 표지라 캐릭터 설정이 정하는 게 맞다.
+       * (대사는 그대로 둔다 — 한 문장만 다른 색으로 강조하는 일이 실제로 있다.)
+       */
       const rules = [
-        `.te-capture [data-te-role="name"][data-te-speaker="${name}"]{color:var(--te-ink,${character.color});}`,
-        /*
-         * 말풍선 이름표는 우리가 붙인 이름표지 사용자가 쓴 글이 아니다.
-         * --te-ink(드래그로 준 색)를 끼워 두면 말풍선 안 글자색을 물려받아
-         * 캐릭터 이름 색이 먹지 않는다. 캐릭터 색을 그대로 쓴다.
-         */
-        `${bubble} .te-bubble-name{color:${character.color};}`,
+        `.te-capture [data-te-role="name"][data-te-speaker="${name}"],`
+        + `${bubble} .te-bubble-name`
+        + `{color:${character.color};}`,
       ];
       if (character.dialogueColor) {
         rules.push(
