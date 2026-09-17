@@ -56,6 +56,8 @@ export function Workspace({ editorRoot, captureNode, detectedNames }: WorkspaceP
     }
   })();
 
+  const order = RAIL.findIndex((item) => item.id === active) + 1;
+
   return (
     <>
       <nav className="rail" aria-label="도구">
@@ -80,7 +82,11 @@ export function Workspace({ editorRoot, captureNode, detectedNames }: WorkspaceP
       {current ? (
         <section className="dock" style={{ width: settings.sidebarWidth }}>
           <header className="dock-head">
-            <h2>{current.label}</h2>
+            {/* 도면처럼 칸 번호를 붙여 둔다 — 레일의 몇 번째인지 바로 보인다 */}
+            <h2>
+              <span className="dock-index">{String(order).padStart(2, '0')}</span>
+              {current.label}
+            </h2>
             <button
               type="button"
               className="dock-close"

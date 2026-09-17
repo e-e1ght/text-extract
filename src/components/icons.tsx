@@ -1,130 +1,56 @@
-/** 레일에 쓰는 선 아이콘. 획 색은 currentColor 를 따른다. */
+/**
+ * 레일과 상단 막대에 쓰는 아이콘.
+ *
+ * 직접 그리지 않고 Font Awesome 의 것을 가져다 씁니다. 손으로 그린 선 아이콘은
+ * 굵기·여백이 제각각이라 나란히 두면 눈에 거슬립니다.
+ *
+ * 다만 아이콘 글꼴도, 공식 렌더러(@fortawesome/react-fontawesome)도 쓰지 않습니다.
+ * 렌더러는 온갖 기능이 딸려 와 gzip 28KB 를 더하는데, 우리가 쓰는 건 열두 모양뿐입니다.
+ * 모양 자료만 가져와(번들에서 쓰는 것만 남습니다) 여기서 직접 그립니다.
+ */
+import {
+  faAlignLeft,
+  faCommentDots,
+  faCropSimple,
+  faFloppyDisk,
+  faHeading,
+  faImage,
+  faMoon,
+  faPalette,
+  faRotateLeft,
+  faRotateRight,
+  faSun,
+  faXmark,
+  type IconDefinition,
+} from '@fortawesome/free-solid-svg-icons';
+
 type IconProps = { size?: number };
 
-const base = (size: number) => ({
-  width: size,
-  height: size,
-  viewBox: '0 0 24 24',
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 1.7,
-  strokeLinecap: 'round' as const,
-  strokeLinejoin: 'round' as const,
-  'aria-hidden': true,
-});
-
-export function IconText({ size = 20 }: IconProps) {
+function Glyph({ icon, size = 16 }: { icon: IconDefinition; size?: number }) {
+  const [width, height, , , path] = icon.icon;
   return (
-    <svg {...base(size)}>
-      <path d="M5 6.5V5h14v1.5" />
-      <path d="M12 5v14" />
-      <path d="M9 19h6" />
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      height={size}
+      width={(size * width) / height}
+      fill="currentColor"
+      aria-hidden
+      focusable="false"
+    >
+      <path d={Array.isArray(path) ? path.join(' ') : path} />
     </svg>
   );
 }
 
-export function IconPalette({ size = 20 }: IconProps) {
-  return (
-    <svg {...base(size)}>
-      <path d="M12 3a9 9 0 1 0 0 18 2.4 2.4 0 0 0 2.4-2.4c0-.63-.24-1.2-.63-1.63a2.4 2.4 0 0 1 1.8-4H18a3 3 0 0 0 3-3A9 9 0 0 0 12 3Z" />
-      <circle cx="7.5" cy="11.5" r="1.1" fill="currentColor" stroke="none" />
-      <circle cx="11" cy="7.5" r="1.1" fill="currentColor" stroke="none" />
-      <circle cx="15.5" cy="8.5" r="1.1" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-export function IconImage({ size = 20 }: IconProps) {
-  return (
-    <svg {...base(size)}>
-      <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
-      <circle cx="8.5" cy="9.5" r="1.6" />
-      <path d="m4 17 4.5-4.5a2 2 0 0 1 2.8 0L16 17" />
-      <path d="m14 15 1.8-1.8a2 2 0 0 1 2.8 0L20 14.5" />
-    </svg>
-  );
-}
-
-export function IconFrame({ size = 20 }: IconProps) {
-  return (
-    <svg {...base(size)}>
-      <path d="M7 3v14.5a1.5 1.5 0 0 0 1.5 1.5H21" />
-      <path d="M3 7h12.5A1.5 1.5 0 0 1 17 8.5V21" />
-    </svg>
-  );
-}
-
-export function IconHeading({ size = 20 }: IconProps) {
-  return (
-    <svg {...base(size)}>
-      <path d="M5 5v14" />
-      <path d="M13 5v14" />
-      <path d="M5 12h8" />
-      <path d="M16.5 19h3.5" />
-      <path d="M18 19v-7l-1.5 1" />
-    </svg>
-  );
-}
-
-export function IconBubble({ size = 20 }: IconProps) {
-  return (
-    <svg {...base(size)}>
-      <path d="M20 12.5a7 7 0 0 1-7 7H8.8L5 22v-3.6A7 7 0 0 1 4 12.5v-.5a7 7 0 0 1 7-7h2a7 7 0 0 1 7 7Z" />
-      <path d="M9 11h6" />
-      <path d="M9 14.5h3.5" />
-    </svg>
-  );
-}
-
-export function IconSave({ size = 20 }: IconProps) {
-  return (
-    <svg {...base(size)}>
-      <path d="M12 3.5v11" />
-      <path d="m8 10.5 4 4 4-4" />
-      <path d="M4.5 16.5v2A2.5 2.5 0 0 0 7 21h10a2.5 2.5 0 0 0 2.5-2.5v-2" />
-    </svg>
-  );
-}
-
-export function IconUndo({ size = 17 }: IconProps) {
-  return (
-    <svg {...base(size)}>
-      <path d="M4 8h9.5a5.5 5.5 0 1 1 0 11H8" />
-      <path d="m7.5 4.5-3.5 3.5 3.5 3.5" />
-    </svg>
-  );
-}
-
-export function IconRedo({ size = 17 }: IconProps) {
-  return (
-    <svg {...base(size)}>
-      <path d="M20 8h-9.5a5.5 5.5 0 1 0 0 11H16" />
-      <path d="m16.5 4.5 3.5 3.5-3.5 3.5" />
-    </svg>
-  );
-}
-
-export function IconSun({ size = 17 }: IconProps) {
-  return (
-    <svg {...base(size)}>
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4" />
-    </svg>
-  );
-}
-
-export function IconMoon({ size = 17 }: IconProps) {
-  return (
-    <svg {...base(size)}>
-      <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
-    </svg>
-  );
-}
-
-export function IconClose({ size = 15 }: IconProps) {
-  return (
-    <svg {...base(size)}>
-      <path d="m6 6 12 12M18 6 6 18" />
-    </svg>
-  );
-}
+export const IconHeading = ({ size }: IconProps) => <Glyph icon={faHeading} size={size} />;
+export const IconText = ({ size }: IconProps) => <Glyph icon={faAlignLeft} size={size} />;
+export const IconPalette = ({ size }: IconProps) => <Glyph icon={faPalette} size={size} />;
+export const IconBubble = ({ size }: IconProps) => <Glyph icon={faCommentDots} size={size} />;
+export const IconImage = ({ size }: IconProps) => <Glyph icon={faImage} size={size} />;
+export const IconFrame = ({ size }: IconProps) => <Glyph icon={faCropSimple} size={size} />;
+export const IconSave = ({ size }: IconProps) => <Glyph icon={faFloppyDisk} size={size} />;
+export const IconClose = ({ size }: IconProps) => <Glyph icon={faXmark} size={size} />;
+export const IconUndo = ({ size }: IconProps) => <Glyph icon={faRotateLeft} size={size} />;
+export const IconRedo = ({ size }: IconProps) => <Glyph icon={faRotateRight} size={size} />;
+export const IconSun = ({ size }: IconProps) => <Glyph icon={faSun} size={size} />;
+export const IconMoon = ({ size }: IconProps) => <Glyph icon={faMoon} size={size} />;
