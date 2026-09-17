@@ -100,10 +100,8 @@ export interface Meta {
 /** 드래그해서 만드는 말풍선의 겉모양 */
 export interface Bubble {
   bubbleRadius: number;
+  /** 인물을 고르지 않은 말풍선의 색. 캐릭터는 저마다 제 색을 갖는다 */
   bubbleColor: string;
-  bubbleTextColor: string;
-  myBubbleColor: string;
-  myBubbleTextColor: string;
   showProfile: boolean;
   profileSize: number;
   showName: boolean;
@@ -116,11 +114,10 @@ export interface CharacterStyle {
   name: string;
   /** 이름 색 */
   color: string;
-  /** 이 캐릭터의 대사 색. 비어 있으면 공통 대사 색을 쓴다 */
+  /** 이 캐릭터의 대사 색. 말풍선 안 글자색도 이 값을 쓴다 */
   dialogueColor: string;
   /** 말풍선 색. 비어 있으면 공통 말풍선 색을 쓴다 */
   bubbleColor: string;
-  bubbleTextColor: string;
   /** data: URL 프로필 이미지. 비어 있으면 이름 색상의 원형으로 대체 */
   avatar: string;
   isMe: boolean;

@@ -123,14 +123,6 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
                   onChange={(event) => upsertCharacter(character.name, { bubbleColor: event.target.value })}
                 />
               </label>
-              <label className="char-field">
-                <span>말풍선 글자</span>
-                <input
-                  type="color"
-                  value={hex(character.bubbleTextColor, settings.bubble.bubbleTextColor)}
-                  onChange={(event) => upsertCharacter(character.name, { bubbleTextColor: event.target.value })}
-                />
-              </label>
 
               <div className="char-field char-action">
                 <FileButton
@@ -153,7 +145,7 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
             </div>
 
             {character.avatar || character.dialogueColor
-              || character.bubbleColor || character.bubbleTextColor ? (
+              || character.bubbleColor ? (
               <div className="character-reset">
                 {character.avatar ? (
                   <button type="button" className="mini-button"
@@ -161,13 +153,13 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
                     프로필 지우기
                   </button>
                 ) : null}
-                {character.dialogueColor || character.bubbleColor || character.bubbleTextColor ? (
+                {character.dialogueColor || character.bubbleColor ? (
                   <button
                     type="button"
                     className="mini-button"
                     title="비우면 공통 색을 씁니다"
                     onClick={() => upsertCharacter(character.name, {
-                      dialogueColor: '', bubbleColor: '', bubbleTextColor: '',
+                      dialogueColor: '', bubbleColor: '',
                     })}
                   >
                     색 공통값으로

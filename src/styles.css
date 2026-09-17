@@ -695,8 +695,12 @@ body {
   /* 꼬리 쪽(프로필이 있는 왼쪽 위) 모서리만 각지게 */
   border-radius: var(--bub-tail) var(--bub-radius) var(--bub-radius) var(--bub-radius);
   background: var(--bub-bg);
-  /* 안쪽 역할 span 까지 닿도록 색을 변수로 넘긴다 (위 '글자색이 정해지는 차례' 참고) */
-  --te-box-ink: var(--bub-fg);
+  /*
+   * 말풍선 안 글자는 '대사 색' 하나로만 정한다.
+   * 따로 '말풍선 글자색' 을 두었더니 대사 색과 뜻이 겹쳐 헷갈렸다.
+   * 안쪽 역할 span 까지 닿도록 색을 변수로 넘긴다 (위 '글자색이 정해지는 차례' 참고).
+   */
+  --te-box-ink: var(--te-dialogue);
   color: var(--te-box-ink);
   text-align: left;
 }

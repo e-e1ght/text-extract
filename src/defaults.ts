@@ -117,9 +117,6 @@ export const DEFAULT_SETTINGS: Settings = {
   bubble: {
     bubbleRadius: 16,
     bubbleColor: '#ffffff',
-    bubbleTextColor: '#2b2b33',
-    myBubbleColor: '#ffe812',
-    myBubbleTextColor: '#2b2b33',
     showProfile: true,
     profileSize: 30,
     showName: true,

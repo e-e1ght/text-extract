@@ -16,19 +16,15 @@ export function BubblePanel({ detectedNames }: { detectedNames: string[] }) {
       <Hint>
         본문에서 대사를 드래그하고 팝업의 <strong>말풍선</strong> 버튼을 누르면
         말풍선이 됩니다. 인물을 고르면 그 캐릭터의 색·프로필·이름이 함께 붙습니다.
-        아래 값은 말풍선 전체에 적용됩니다.
         <br />
         같은 자리의 <strong>대본</strong> 버튼은 <code>이름　대사</code> 처럼 두 칸으로
-        나란히 놓습니다. 말풍선 색은 쓰지 않고 캐릭터의 이름·대사 색만 씁니다.
+        나란히 놓습니다.
+        <br />
+        <strong>말풍선 안 글자색은 '대사' 색입니다.</strong> 아래 '말풍선 색' 은
+        인물을 고르지 않은 말풍선에 쓰이고, 캐릭터는 저마다 제 색을 씁니다.
       </Hint>
           <ColorField label="말풍선 색" value={bubble.bubbleColor}
             onChange={(bubbleColor) => patch('bubble', { bubbleColor })} />
-          <ColorField label="말풍선 글자색" value={bubble.bubbleTextColor}
-            onChange={(bubbleTextColor) => patch('bubble', { bubbleTextColor })} />
-          <ColorField label="내 말풍선 색" value={bubble.myBubbleColor}
-            onChange={(myBubbleColor) => patch('bubble', { myBubbleColor })} />
-          <ColorField label="내 말풍선 글자색" value={bubble.myBubbleTextColor}
-            onChange={(myBubbleTextColor) => patch('bubble', { myBubbleTextColor })} />
           <NumberSlider label="말풍선 둥글기" value={bubble.bubbleRadius} min={0} max={32}
             onChange={(bubbleRadius) => patch('bubble', { bubbleRadius })} />
           <NumberSlider label="말풍선 최대 너비" value={bubble.bubbleMaxWidth} min={40} max={100} unit="%"

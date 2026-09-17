@@ -30,9 +30,9 @@ function characterCss(settings: Settings): string {
         `.te-capture [data-te-speaker="${name}"]{`
         + `--te-name-ink:${character.color};`
         + `--te-say-ink:${character.dialogueColor || 'var(--te-dialogue)'};}`,
-        // 말풍선 안은 말풍선 글자색, 대본 안은 대사색이 그 상자의 색이 된다.
+        // 말풍선·대본 안 글자는 둘 다 이 인물의 대사색을 쓴다.
         `${bubble} .te-bubble-text{`
-        + `--te-box-ink:${character.bubbleTextColor || 'var(--bub-fg)'};`
+        + `--te-box-ink:${character.dialogueColor || 'var(--te-dialogue)'};`
         + `background:${character.bubbleColor || 'var(--bub-bg)'};}`,
         `${script} .te-script-text{`
         + `--te-box-ink:${character.dialogueColor || 'var(--te-dialogue)'};}`,
@@ -47,10 +47,9 @@ function characterCss(settings: Settings): string {
         rules.push(
           `${bubble}{align-items:flex-end;}`,
           `${bubble} .te-bubble-name{flex-direction:row-reverse;}`,
+          // 꼬리만 반대쪽으로 — 색은 위에서 이미 이 인물 것으로 정했다
           `${bubble} .te-bubble-text{`
-          + `border-radius:var(--bub-radius) var(--bub-tail) var(--bub-radius) var(--bub-radius);`
-          + `background:${character.bubbleColor || 'var(--bub-my-bg)'};`
-          + `--te-box-ink:${character.bubbleTextColor || 'var(--bub-my-fg)'};}`,
+          + `border-radius:var(--bub-radius) var(--bub-tail) var(--bub-radius) var(--bub-radius);}`,
           `.te-capture.bub-profile ${bubble.slice('.te-capture '.length)} .te-bubble-text`
           + `{margin-left:0;margin-right:calc(var(--bub-avatar) + 8px);}`,
         );
@@ -216,9 +215,6 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
     // 드래그해서 만드는 말풍선
     ['--bub-radius' as string]: `${settings.bubble.bubbleRadius}px`,
     ['--bub-bg' as string]: settings.bubble.bubbleColor,
-    ['--bub-fg' as string]: settings.bubble.bubbleTextColor,
-    ['--bub-my-bg' as string]: settings.bubble.myBubbleColor,
-    ['--bub-my-fg' as string]: settings.bubble.myBubbleTextColor,
     ['--bub-name-size' as string]: `${settings.bubble.nameSize}px`,
     ['--bub-avatar' as string]: `${settings.bubble.profileSize}px`,
     ['--bub-max' as string]: `${settings.bubble.bubbleMaxWidth}%`,

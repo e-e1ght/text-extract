@@ -27,7 +27,6 @@ export function newCharacter(name: string, settings: Settings): CharacterStyle {
     color: settings.roles.name,
     dialogueColor: settings.roles.dialogue,
     bubbleColor: settings.bubble.bubbleColor,
-    bubbleTextColor: settings.bubble.bubbleTextColor,
     avatar: '',
     isMe: false,
   };
@@ -66,7 +65,6 @@ export function mergeSettings(base: Settings, incoming: unknown): Settings {
       ...character,
       dialogueColor: character.dialogueColor || result.roles.dialogue,
       bubbleColor: character.bubbleColor || result.bubble.bubbleColor,
-      bubbleTextColor: character.bubbleTextColor || result.bubble.bubbleTextColor,
     }]),
   );
   return result;
