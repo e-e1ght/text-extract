@@ -7,7 +7,14 @@ function escapeAttr(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-/** 캐릭터별 색상·말풍선을 동적 CSS 규칙으로 만든다. */
+/**
+ * 캐릭터별 색을 동적 CSS 규칙으로 만든다.
+ *
+ * 색을 요소마다 박지 않고 **변수로 넘긴다** — 역할 span 은 styles.css 의
+ * '글자색이 정해지는 차례' 한 줄만 보고, 어디서 변수를 정했느냐로 차례가 갈린다.
+ * 예전에는 상자와 안쪽 span 이 각자 color 를 가져 늘 안쪽이 이겼고,
+ * 그래서 캐릭터 색이 공용 색에 묻히는 일이 되풀이됐다.
+ */
 function characterCss(settings: Settings): string {
   const { characters, roles } = settings;
   if (!roles.enabled) return '';
@@ -18,30 +25,19 @@ function characterCss(settings: Settings): string {
       const bubble = `.te-capture .te-bubble[data-te-speaker="${name}"]`;
       const script = `.te-capture .te-script[data-te-speaker="${name}"]`;
 
-      /*
-       * 캐릭터 색은 드래그로 준 색(--te-ink)에 양보하지 않는다.
-       *
-       * 캐릭터를 따로 두는 까닭이 색을 분리하는 것인데, 본문을 통째로 드래그해
-       * 색을 바꾸면 캐릭터 색이 전부 묻혔다. 그 뒤로는 캐릭터 카드에서 아무리
-       * 바꿔도 먹지 않고 되돌릴 방법도 없었다.
-       * 캐릭터의 글자색을 바꾸려면 캐릭터 카드에서 바꾼다 — 자리가 하나뿐이라야
-       * 헷갈리지 않는다.
-       */
       const rules = [
-        `.te-capture [data-te-role="name"][data-te-speaker="${name}"],`
-        + `${bubble} .te-bubble-name,`
-        + `${script} .te-script-name`
-        + `{color:${character.color};}`,
+        // 이 인물의 이름·대사 색. 역할 span 이든 상자든 speaker 만 같으면 닿는다.
+        `.te-capture [data-te-speaker="${name}"]{`
+        + `--te-name-ink:${character.color};`
+        + `--te-say-ink:${character.dialogueColor || 'var(--te-dialogue)'};}`,
+        // 말풍선 안은 말풍선 글자색, 대본 안은 대사색이 그 상자의 색이 된다.
+        `${bubble} .te-bubble-text{`
+        + `--te-box-ink:${character.bubbleTextColor || 'var(--bub-fg)'};`
+        + `background:${character.bubbleColor || 'var(--bub-bg)'};}`,
+        `${script} .te-script-text{`
+        + `--te-box-ink:${character.dialogueColor || 'var(--te-dialogue)'};}`,
       ];
-      if (character.dialogueColor) {
-        rules.push(
-          `.te-capture [data-te-role="dialogue"][data-te-speaker="${name}"],`
-          + `${script} .te-script-text`
-          + `{color:${character.dialogueColor};}`,
-        );
-      }
 
-      // '내 쪽' 기본 모양이 먼저, 캐릭터가 따로 정한 색이 나중 — 뒤에 온 규칙이 이긴다.
       if (character.isMe) {
         /*
          * 내 쪽은 오른쪽에 붙으므로 이름줄도 통째로 좌우를 뒤집는다.
@@ -53,16 +49,11 @@ function characterCss(settings: Settings): string {
           `${bubble} .te-bubble-name{flex-direction:row-reverse;}`,
           `${bubble} .te-bubble-text{`
           + `border-radius:var(--bub-radius) var(--bub-tail) var(--bub-radius) var(--bub-radius);`
-          + `background:var(--bub-my-bg);color:var(--bub-my-fg);}`,
+          + `background:${character.bubbleColor || 'var(--bub-my-bg)'};`
+          + `--te-box-ink:${character.bubbleTextColor || 'var(--bub-my-fg)'};}`,
           `.te-capture.bub-profile ${bubble.slice('.te-capture '.length)} .te-bubble-text`
           + `{margin-left:0;margin-right:calc(var(--bub-avatar) + 8px);}`,
         );
-      }
-      if (character.bubbleColor) {
-        rules.push(`${bubble} .te-bubble-text{background:${character.bubbleColor};}`);
-      }
-      if (character.bubbleTextColor) {
-        rules.push(`${bubble} .te-bubble-text{color:${character.bubbleTextColor};}`);
       }
       if (character.avatar) {
         rules.push(`${bubble} .te-bubble-name::before{background-image:url("${character.avatar}");}`);

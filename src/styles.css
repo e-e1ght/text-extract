@@ -474,19 +474,46 @@ body {
  * --te-ink / --te-size 는 사용자가 드래그로 직접 준 값이며, 상속을 타고 내려와
  * 안쪽 역할 span 까지 덮어쓴다. 그래서 드래그 서식이 항상 사이드바 서식을 이긴다.
  */
+/*
+ * 글자색이 정해지는 차례 — 한 줄로 모아 둡니다.
+ *
+ * 예전에는 겉을 감싼 상자(말풍선·대본)가 color 를 갖고, 그 안의 역할 span 이
+ * 또 제 color 를 가졌습니다. 그러면 **언제나 가장 안쪽이 이겨서**, 말풍선을
+ * 만들어도 안쪽 대사 span 이 공용 대사색을 그대로 써 버렸습니다.
+ * (겉 상자만 재 보면 맞게 나오니 잘 드러나지도 않았습니다.)
+ *
+ * 그래서 색을 상자에 직접 넣지 않고 **변수로 넘깁니다.** 역할 span 은 아래 한
+ * 줄만 보고, 변수를 어디서 정했느냐로 차례가 갈립니다.
+ *
+ *   --te-box-ink   상자(말풍선·대본) 안이면 그 상자의 글자색
+ *   --te-name-ink  등록한 캐릭터의 이름 색
+ *   --te-say-ink   등록한 캐릭터의 대사 색
+ *   --te-ink       드래그해서 준 색
+ *   그 외          색상 패널의 역할별 공통색
+ *
+ * 캐릭터·상자가 드래그 색보다 앞섭니다. 캐릭터를 따로 두는 까닭이 색을
+ * 분리하는 것인데, 본문을 통째로 드래그하면 그게 전부 묻혔기 때문입니다.
+ */
 .te-dialogue {
-  color: var(--te-ink, var(--te-dialogue));
+  color: var(--te-box-ink, var(--te-say-ink, var(--te-ink, var(--te-dialogue))));
   font-size: var(--te-size, var(--te-dialogue-size, inherit));
   font-style: var(--te-dialogue-style, normal);
 }
-.te-narration { color: var(--te-ink, var(--te-narration)); font-size: var(--te-size, inherit); }
+.te-narration {
+  color: var(--te-box-ink, var(--te-ink, var(--te-narration)));
+  font-size: var(--te-size, inherit);
+}
 .te-emph {
-  color: var(--te-ink, var(--te-emph));
+  color: var(--te-box-ink, var(--te-ink, var(--te-emph)));
   font-size: var(--te-size, inherit);
   font-style: var(--te-emph-style, italic);
 }
-.te-name { color: var(--te-ink, var(--te-name)); font-size: var(--te-size, inherit); font-weight: 600; }
-.te-mark { color: var(--te-ink, var(--te-emph)); font-size: var(--te-size, inherit); }
+.te-name {
+  color: var(--te-box-ink, var(--te-name-ink, var(--te-ink, var(--te-name))));
+  font-size: var(--te-size, inherit);
+  font-weight: 600;
+}
+.te-mark { color: var(--te-box-ink, var(--te-ink, var(--te-emph))); font-size: var(--te-size, inherit); }
 /* 별표는 자리까지 없애야 결과물이 깔끔하다 */
 .te-capture.hide-marks .te-mark { display: none; }
 
@@ -659,7 +686,7 @@ body {
   font-size: var(--bub-name-size);
   font-weight: 500;
   line-height: 1.6;
-  color: var(--te-name);
+  color: var(--te-name-ink, var(--te-name));
 }
 .te-bubble-text {
   display: inline-block;
@@ -668,7 +695,9 @@ body {
   /* 꼬리 쪽(프로필이 있는 왼쪽 위) 모서리만 각지게 */
   border-radius: var(--bub-tail) var(--bub-radius) var(--bub-radius) var(--bub-radius);
   background: var(--bub-bg);
-  color: var(--te-ink, var(--bub-fg));
+  /* 안쪽 역할 span 까지 닿도록 색을 변수로 넘긴다 (위 '글자색이 정해지는 차례' 참고) */
+  --te-box-ink: var(--bub-fg);
+  color: var(--te-box-ink);
   text-align: left;
 }
 /* 프로필 사진은 이름 앞에 동그랗게 (그림은 캐릭터 규칙이 넣는다) */
@@ -712,9 +741,10 @@ body {
   flex: 0 0 auto;
   min-width: 5em;
   font-weight: 600;
-  color: var(--te-name);
+  color: var(--te-name-ink, var(--te-name));
 }
-.te-script-text { flex: 1 1 auto; min-width: 0; }
+/* 인물을 고르면 캐릭터 규칙이 --te-box-ink 로 대사 색을 넘긴다 */
+.te-script-text { flex: 1 1 auto; min-width: 0; color: var(--te-box-ink, inherit); }
 /* 이름 표시를 끄면 대사만 남는다 (말풍선과 같은 스위치를 쓴다) */
 .te-capture:not(.bub-name) .te-script-name { display: none; }
 .te-capture:not(.bub-name) .te-script { gap: 0; }
