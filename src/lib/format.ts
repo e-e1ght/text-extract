@@ -748,3 +748,93 @@ export function splitLineKeepingMarks(root: HTMLElement, lineBreak: boolean): bo
   }
   return false;
 }
+
+/** 화면에서 감춰진 기호(*, 괄호)인지 — 감춤 여부는 설정에 따라 달라지므로 실제 표시로 본다. */
+function isHiddenMark(node: Node): boolean {
+  const mark = (node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement)
+    ?.closest('.te-mark, .te-paren-mark');
+  return Boolean(mark && getComputedStyle(mark).display === 'none');
+}
+
+/** 줄 안의 글자 노드 (이름표처럼 우리가 붙인 표지는 뺀다) */
+function lineTexts(line: Node): Text[] {
+  const out: Text[] = [];
+  const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!(node.parentElement?.closest('[data-te-label]'))) out.push(node as Text);
+  }
+  return out;
+}
+
+/** 줄 끝(atEnd)이나 머리에 붙은 감춘 기호 요소. 보이는 글이 먼저 나오면 null. */
+function edgeMark(line: Node, atEnd: boolean): HTMLElement | null {
+  const texts = lineTexts(line).filter((t) => t.data.length > 0);
+  const node = atEnd ? texts[texts.length - 1] : texts[0];
+  if (!node || !isHiddenMark(node)) return null;
+  return node.parentElement?.closest<HTMLElement>('.te-mark, .te-paren-mark') ?? null;
+}
+
+/**
+ * 줄 머리에서 Backspace, 줄 끝에서 Delete 로 두 줄을 합칠 때 서식이 풀리지 않게 한다.
+ *
+ * 브라우저에 맡기면 줄을 합치면서 감춘 기호까지 지워, 괄호·별표 짝이 깨져 서식이 풀렸다.
+ * (줄 가운데서 지울 때는 브라우저가 감춘 기호를 알아서 건너뛰므로 손대지 않는다.)
+ * 직접 합치되, 줄을 나눌 때 넣은 기호 짝(윗줄 끝 닫는 기호 + 아랫줄 머리 여는 기호)이면
+ * 둘 다 빼서 원래 하나였던 묶음으로 되돌린다. 합쳤으면 true — 브라우저 동작은 막아야 한다.
+ */
+export function joinLinesKeepingMarks(root: HTMLElement, forward: boolean): boolean {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return false;
+  const range = sel.getRangeAt(0);
+  if (!range.collapsed || !root.contains(range.startContainer)) return false;
+
+  let line: Node = range.startContainer;
+  while (line.parentNode && line.parentNode !== root) line = line.parentNode;
+  if (line === root || line.nodeType !== Node.ELEMENT_NODE) return false;
+
+  // 커서와 줄 머리(끝) 사이에 보이는 글이 없어야 '줄 경계에서 지우기' 다.
+  const between = document.createRange();
+  between.selectNodeContents(line);
+  if (forward) between.setStart(range.startContainer, range.startOffset);
+  else between.setEnd(range.startContainer, range.startOffset);
+  const visible = lineTexts(line).some((t) => !isHiddenMark(t) && between.intersectsNode(t)
+    && (t === range.startContainer
+      ? (forward ? t.data.length > range.startOffset : range.startOffset > 0)
+      : t.data.length > 0));
+  if (visible) return false;
+
+  const upper = (forward ? line : line.previousSibling) as HTMLElement | null;
+  const lower = (forward ? line.nextSibling : line) as HTMLElement | null;
+  if (!upper || !lower || upper.nodeType !== Node.ELEMENT_NODE || lower.nodeType !== Node.ELEMENT_NODE) return false;
+  // 구분선·나눔선·이미지 줄은 브라우저에 맡긴다.
+  if (!upper.isContentEditable || !lower.isContentEditable) return false;
+  // 감춘 기호가 끼어 있지 않으면 브라우저 동작으로 충분하다.
+  const closer = edgeMark(upper, true);
+  const opener = edgeMark(lower, false);
+  if (!closer && !opener) return false;
+
+  if (closer && opener && closer.className === opener.className) {
+    const pair = closer.classList.contains('te-paren-mark')
+      ? /^[)）]$/.test(closer.textContent ?? '') && /^[(（]$/.test(opener.textContent ?? '')
+      : closer.textContent === opener.textContent;
+    if (pair) {
+      closer.remove();
+      opener.remove();
+    }
+  }
+
+  // 빈 줄의 <br> 은 합치면 군더더기다.
+  upper.querySelectorAll(':scope > br:last-child').forEach((br) => br.remove());
+  const joint = document.createRange();
+  joint.selectNodeContents(upper);
+  joint.collapse(false);
+  const firstMoved = lower.firstChild;
+  while (lower.firstChild) upper.appendChild(lower.firstChild);
+  lower.remove();
+  if (firstMoved && firstMoved.parentNode === upper) joint.setStartBefore(firstMoved);
+  joint.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(joint);
+  remembered = joint.cloneRange();
+  return true;
+}

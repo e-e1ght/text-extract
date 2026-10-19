@@ -134,6 +134,44 @@ export interface Sticker {
   opacity: number;
 }
 
+/** 본문 위·아래·왼쪽·오른쪽에 붙는 이미지 칸 */
+export type SlotSide = 'top' | 'bottom' | 'left' | 'right';
+
+export interface ImageSlot {
+  enabled: boolean;
+  /** data: URL */
+  url: string;
+  /** 위·아래 칸은 높이, 왼쪽·오른쪽 칸은 너비 (px) */
+  size: number;
+  /** 왼쪽·오른쪽 칸의 높이 (px). 0 이면 본문 높이에 맞춘다 */
+  length: number;
+  fit: 'cover' | 'contain' | 'custom';
+  /** fit 이 custom 일 때 칸 너비 대비 크기 (%) */
+  scale: number;
+  /** 이미지 위치 (%) — 배경처럼 드래그로 조절한다 */
+  x: number;
+  y: number;
+  marginTop: number;
+  marginRight: number;
+  marginBottom: number;
+  marginLeft: number;
+  borderWidth: number;
+  borderColor: string;
+  radius: number;
+  shadow: boolean;
+  shadowBlur: number;
+  shadowOpacity: number;
+}
+
+export interface ImageSlots {
+  /** 이미지 슬롯 기능 전체를 켜고 끈다 */
+  enabled: boolean;
+  top: ImageSlot;
+  bottom: ImageSlot;
+  left: ImageSlot;
+  right: ImageSlot;
+}
+
 /** 사용자가 올린 글꼴. 실제 파일은 IndexedDB 에 두고 여기엔 목록만 남긴다. */
 export interface CustomFont {
   id: string;
@@ -170,6 +208,7 @@ export interface Settings {
   characters: Record<string, CharacterStyle>;
   customFonts: CustomFont[];
   stickers: Sticker[];
+  imageSlots: ImageSlots;
   /** 미리보기 확대 배율 (결과물 크기와는 무관) */
   previewZoom: number;
   exportOptions: ExportOptions;

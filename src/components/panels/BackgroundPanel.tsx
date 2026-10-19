@@ -4,6 +4,7 @@ import { useStore } from '../../store';
 import { ButtonGroup, ColorField, Field, FileButton, Hint, NumberSlider, Select, TextInput } from '../ui';
 import type { BackgroundType } from '../../types';
 import { ImageSection } from './ImageSection';
+import { SlotSection } from './SlotSection';
 
 export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
   const { settings, patch, adjustingImage, setAdjustingImage } = useStore();
@@ -160,6 +161,10 @@ export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null
         hint="배경 위 글자 가독성 보정" onChange={(overlayOpacity) => patch('background', { overlayOpacity })} />
       <NumberSlider label="배경 흐림" value={bg.blur} min={0} max={30}
         onChange={(blur) => patch('background', { blur })} />
+
+      <hr className="divider" />
+
+      <SlotSection />
     </>
   );
 }

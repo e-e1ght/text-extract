@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
 import { useStore } from '../store';
 import { ensureWebFont } from '../lib/webfonts';
-import type { Settings } from '../types';
+import type { ImageSlot, Settings, SlotSide } from '../types';
 
 function escapeAttr(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
@@ -178,6 +178,98 @@ function AuthorBlock({ settings }: { settings: Settings }) {
   );
 }
 
+const SLOT_LABEL: Record<SlotSide, string> = { top: '위', bottom: '아래', left: '왼쪽', right: '오른쪽' };
+
+/**
+ * 본문 위·아래·왼쪽·오른쪽에 붙는 이미지 칸.
+ * 이미지는 배경처럼 background 로 깔아, 채우기·위치·크기를 배경과 같은 방식으로 다룬다.
+ * 조절 중이면 칸 위에 드래그(위치)·휠(크기)을 받는 덮개를 얹는다.
+ */
+function SlotBox({
+  side, slot, adjusting, onChange,
+}: { side: SlotSide; slot: ImageSlot; adjusting: boolean; onChange: (change: Partial<ImageSlot>) => void }) {
+  const drag = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const vertical = side === 'left' || side === 'right';
+
+  const style: CSSProperties = {
+    flex: '0 0 auto',
+    margin: `${slot.marginTop}px ${slot.marginRight}px ${slot.marginBottom}px ${slot.marginLeft}px`,
+    width: vertical ? `${slot.size}px` : undefined,
+    height: vertical ? (slot.length > 0 ? `${slot.length}px` : undefined) : `${slot.size}px`,
+    // 본문이 짧아도 납작해지지 않게, 높이를 맞추는 칸은 적어도 너비만큼은 높이를 갖는다.
+    minHeight: vertical && slot.length === 0 ? `${slot.size}px` : undefined,
+    // 높이를 정하지 않은 왼쪽·오른쪽 칸은 본문 높이를 따라 늘어난다.
+    alignSelf: vertical && slot.length > 0 ? 'flex-start' : 'stretch',
+    border: slot.borderWidth > 0 ? `${slot.borderWidth}px solid ${slot.borderColor}` : undefined,
+    borderRadius: `${slot.radius}px`,
+    boxShadow: slot.shadow
+      ? `0 ${Math.round(slot.shadowBlur / 3)}px ${slot.shadowBlur}px rgba(0, 0, 0, ${slot.shadowOpacity})`
+      : undefined,
+  };
+
+  // 이미지를 아직 안 넣은 칸은 자리만 보여 주고 결과물에는 넣지 않는다.
+  if (!slot.url) {
+    return (
+      <div className={`te-slot is-empty te-slot-${side}`} style={style} data-export-ignore="true">
+        <span>{SLOT_LABEL[side]} 이미지 슬롯</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`te-slot te-slot-${side}`} style={style}>
+      <div
+        className="te-slot-image"
+        style={{
+          backgroundImage: `url("${slot.url}")`,
+          backgroundSize: slot.fit === 'custom' ? `${slot.scale}% auto` : slot.fit,
+          backgroundPosition: `${slot.x}% ${slot.y}%`,
+        }}
+      />
+      {adjusting ? (
+        <div
+          className="bg-drag"
+          data-export-ignore="true"
+          title="드래그해서 위치를, 휠을 굴려 크기를 조절하세요"
+          onWheel={(event) => {
+            event.preventDefault();
+            // 꽉 채우기 상태에서 휠을 굴리면 그 자리에서 직접 지정으로 넘어간다 (배경과 같다).
+            const base = slot.fit === 'custom' ? slot.scale : 100;
+            const next = Math.min(400, Math.max(10, base * (event.deltaY > 0 ? 0.94 : 1.06)));
+            onChange({ fit: 'custom', scale: Math.round(next) });
+          }}
+          onPointerDown={(event) => {
+            const box = event.currentTarget.getBoundingClientRect();
+            drag.current = { x: event.clientX, y: event.clientY, w: box.width, h: box.height };
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            const start = drag.current;
+            if (!start) return;
+            // background-position 은 값이 커질수록 이미지가 왼쪽·위로 간다 — 부호를 뒤집는다.
+            const dx = ((event.clientX - start.x) / start.w) * 100;
+            const dy = ((event.clientY - start.y) / start.h) * 100;
+            drag.current = { ...start, x: event.clientX, y: event.clientY };
+            onChange({
+              x: Math.min(100, Math.max(0, slot.x - dx)),
+              y: Math.min(100, Math.max(0, slot.y - dy)),
+            });
+          }}
+          onPointerUp={(event) => {
+            drag.current = null;
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }}
+          onPointerCancel={() => { drag.current = null; }}
+        >
+          <span className="bg-drag-badge">
+            {SLOT_LABEL[side]} 슬롯 조절 중{slot.fit === 'custom' ? ` · ${Math.round(slot.scale)}%` : ''}
+          </span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 interface PreviewProps {
   settings: Settings;
   captureRef: (node: HTMLDivElement | null) => void;
@@ -186,7 +278,17 @@ interface PreviewProps {
 
 export function Preview({ settings, captureRef, children }: PreviewProps) {
   const { layout, typography, roles, background, meta } = settings;
-  const { patch, adjustingImage } = useStore();
+  const { patch, adjustingImage, adjustingSlot } = useStore();
+  const slots = settings.imageSlots;
+  const slotOn = (side: SlotSide) => slots.enabled && slots[side].enabled;
+  const renderSlot = (side: SlotSide) => (slotOn(side) ? (
+    <SlotBox
+      side={side}
+      slot={slots[side]}
+      adjusting={adjustingSlot === side}
+      onChange={(change) => patch('imageSlots', { [side]: { ...slots[side], ...change } })}
+    />
+  ) : null);
   const scale = typography.horizontalScale;
   const drag = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
 
@@ -333,17 +435,26 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
       ) : null}
 
       <div className="te-content" style={contentStyle}>
-        {/* 제목·제작자도 장평과 본문 서식을 함께 받도록 같은 래퍼 안에 둔다 */}
-        <div className="te-scale" style={scaleStyle}>
-          <div className="te-type" style={typeStyle}>
-            {/* 제목과 제작자가 같은 쪽이면 제작자를 바깥쪽에 둔다 */}
-            {meta.authorPosition === 'top' ? <AuthorBlock settings={settings} /> : null}
-            {meta.position === 'top' ? <TitleBlock settings={settings} /> : null}
-            {children}
-            {meta.position === 'bottom' ? <TitleBlock settings={settings} /> : null}
-            {meta.authorPosition === 'bottom' ? <AuthorBlock settings={settings} /> : null}
+        {renderSlot('top')}
+        {/* 왼쪽·오른쪽 슬롯이 본문과 한 줄에 서도록 가로로 묶는다 */}
+        <div className="te-middle">
+          {renderSlot('left')}
+          <div className="te-main">
+            {/* 제목·제작자도 장평과 본문 서식을 함께 받도록 같은 래퍼 안에 둔다 */}
+            <div className="te-scale" style={scaleStyle}>
+              <div className="te-type" style={typeStyle}>
+                {/* 제목과 제작자가 같은 쪽이면 제작자를 바깥쪽에 둔다 */}
+                {meta.authorPosition === 'top' ? <AuthorBlock settings={settings} /> : null}
+                {meta.position === 'top' ? <TitleBlock settings={settings} /> : null}
+                {children}
+                {meta.position === 'bottom' ? <TitleBlock settings={settings} /> : null}
+                {meta.authorPosition === 'bottom' ? <AuthorBlock settings={settings} /> : null}
+              </div>
+            </div>
           </div>
+          {renderSlot('right')}
         </div>
+        {renderSlot('bottom')}
       </div>
     </div>
   );

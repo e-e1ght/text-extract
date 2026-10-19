@@ -434,6 +434,27 @@ body {
   height: 100%;
 }
 .te-scale { flex: 0 0 auto; }
+/* 왼쪽 슬롯 · 본문 · 오른쪽 슬롯. 슬롯이 없으면 본문 하나만 들어 예전과 같다. */
+.te-middle { display: flex; flex: 0 0 auto; align-items: stretch; }
+.te-main { flex: 1 1 auto; min-width: 0; }
+
+/* 이미지 슬롯 */
+.te-slot { position: relative; overflow: hidden; box-sizing: border-box; }
+.te-slot-image {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+}
+.te-slot.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+  border: 1.5px dashed rgba(120, 120, 135, 0.55) !important;
+  color: rgba(120, 120, 135, 0.9);
+  font: 500 12px 'Pretendard Variable', Pretendard, sans-serif;
+  letter-spacing: 0;
+}
 .te-type { width: 100%; }
 
 .editor-wrap { position: relative; }
