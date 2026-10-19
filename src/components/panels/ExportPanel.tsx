@@ -31,6 +31,11 @@ export function ExportPanel({
     setPresetStatus(message);
     window.setTimeout(() => setPresetStatus(''), 2600);
   };
+  const [resetStatus, setResetStatus] = useState('');
+  const announceReset = (message: string) => {
+    setResetStatus(message);
+    window.setTimeout(() => setResetStatus(''), 2600);
+  };
 
   const runExport = async () => {
     if (!captureNode) return;
@@ -249,7 +254,7 @@ export function ExportPanel({
               // 이걸 빠뜨리면 새로고침했을 때 예전 서식이 되살아난다.
               editorRoot.dispatchEvent(new Event('input', { bubbles: true }));
             }
-            announce('모든 서식을 기본값으로 되돌렸습니다.');
+            announceReset('모든 서식을 기본값으로 되돌렸습니다.');
           }}
         >
           모든 서식 초기화
@@ -260,12 +265,30 @@ export function ExportPanel({
           onClick={() => {
             if (!window.confirm('패널 편집 옵션만 기본값으로 되돌릴까요? 본문에 직접 준 서식은 남습니다.')) return;
             resetSettings();
-            announce('편집 옵션을 되돌렸습니다.');
+            announceReset('편집 옵션을 되돌렸습니다.');
           }}
         >
           편집 옵션만
         </button>
+        <button
+          type="button"
+          className="mini-button"
+          disabled={!editorRoot}
+          onClick={() => {
+            if (!editorRoot) return;
+            if (!window.confirm('본문 글만 모두 지울까요?\n\n편집 옵션·제목·스티커 등 서식은 그대로 남습니다.\n잘못 지웠다면 Ctrl+Z 로 되돌릴 수 있습니다.')) return;
+            // 빈 줄 하나만 남겨 두어야 바로 이어서 쓸 수 있다.
+            const line = document.createElement('div');
+            line.appendChild(document.createElement('br'));
+            editorRoot.replaceChildren(line);
+            editorRoot.dispatchEvent(new Event('input', { bubbles: true }));
+            announceReset('본문을 지웠습니다.');
+          }}
+        >
+          본문만 지우기
+        </button>
       </div>
+      {resetStatus ? <p className="status-line" role="status">{resetStatus}</p> : null}
       <Hint>본문에 직접 준 서식만 지우려면, 글자를 드래그한 뒤 팝업의 <strong>지우기</strong>를 누르세요.</Hint>
     </>
   );

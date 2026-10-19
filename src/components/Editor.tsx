@@ -3,7 +3,7 @@ import { collapseBlankLines, isOpenParenMark, markupRoles } from '../lib/parse';
 import { restoreCaret, saveCaret } from '../lib/caret';
 import { ensureWebFont } from '../lib/webfonts';
 import {
-  blockAtSelection, insertPlainText, rememberSelection, selectImage, selectionImage,
+  blockAtSelection, insertPlainText, splitLineKeepingMarks, rememberSelection, selectImage, selectionImage,
   syncInlineVars,
 } from '../lib/format';
 
@@ -225,6 +225,26 @@ export function Editor({
   }, []);
 
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
+
+  /*
+   * 괄호·별표 안에서 줄을 바꿔도 서식이 풀리지 않게 한다 (splitLineKeepingMarks).
+   * keydown 이 아니라 beforeinput 에서 받는다 — 한글을 조합하던 중에 Enter 를 쳐도
+   * 조합이 끝난 뒤 줄바꿈 직전에 한 번 들어오기 때문이다.
+   */
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !autoParse) return undefined;
+    const onBeforeInput = (event: InputEvent) => {
+      if (event.inputType !== 'insertParagraph' && event.inputType !== 'insertLineBreak') return;
+      if (!splitLineKeepingMarks(root, event.inputType === 'insertLineBreak')) return;
+      event.preventDefault();
+      window.clearTimeout(timerRef.current);
+      remark();
+      publish();
+    };
+    root.addEventListener('beforeinput', onBeforeInput);
+    return () => root.removeEventListener('beforeinput', onBeforeInput);
+  }, [autoParse, remark, publish]);
 
   return (
     <div

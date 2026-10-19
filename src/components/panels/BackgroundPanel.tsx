@@ -3,8 +3,9 @@ import { readFileAsDataUrl, urlToDataUrl } from '../../lib/exporters';
 import { useStore } from '../../store';
 import { ButtonGroup, ColorField, Field, FileButton, Hint, NumberSlider, Select, TextInput } from '../ui';
 import type { BackgroundType } from '../../types';
+import { ImageSection } from './ImageSection';
 
-export function BackgroundPanel() {
+export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
   const { settings, patch, adjustingImage, setAdjustingImage } = useStore();
   const bg = settings.background;
   const [urlNote, setUrlNote] = useState('');
@@ -23,6 +24,11 @@ export function BackgroundPanel() {
 
   return (
     <>
+      <ImageSection editorRoot={editorRoot} />
+
+      <hr className="divider" />
+
+      <div className="panel-head"><span>배경</span></div>
       <ButtonGroup
         label="배경 종류"
         value={bg.type}
