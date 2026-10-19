@@ -20,8 +20,8 @@ const RAIL: Array<{ id: PanelId; label: string; icon: ReactNode }> = [
   { id: 'text', label: '본문', icon: <IconText /> },
   { id: 'color', label: '색상', icon: <IconPalette /> },
   { id: 'bubble', label: '말풍선 · 캐릭터', icon: <IconBubble /> },
-  { id: 'background', label: '배경', icon: <IconImage /> },
-  { id: 'layout', label: '이미지 영역', icon: <IconFrame /> },
+  { id: 'background', label: '이미지', icon: <IconImage /> },
+  { id: 'layout', label: '내지 옵션', icon: <IconFrame /> },
   { id: 'export', label: '저장 · 설정', icon: <IconSave /> },
 ];
 
@@ -47,7 +47,7 @@ export function Workspace({ editorRoot, captureNode, detectedNames }: WorkspaceP
     switch (active) {
       case 'text': return <TextPanel editorRoot={editorRoot} />;
       case 'color': return <ColorPanel />;
-      case 'background': return <BackgroundPanel />;
+      case 'background': return <BackgroundPanel editorRoot={editorRoot} />;
       case 'layout': return <LayoutPanel />;
       case 'meta': return <MetaPanel />;
       case 'bubble': return <BubblePanel detectedNames={detectedNames} />;

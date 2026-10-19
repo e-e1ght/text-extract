@@ -86,7 +86,7 @@ function resolve(root: HTMLElement, point: CaretPoint, isStart: boolean): [Node,
   const texts = walkTextNodes(scope);
   for (const node of texts) {
     if (remaining < node.data.length || (remaining === node.data.length && !isStart)) {
-      return [node, remaining];
+      return outsideHiddenMark(node, remaining);
     }
     remaining -= node.data.length;
   }
@@ -94,6 +94,21 @@ function resolve(root: HTMLElement, point: CaretPoint, isStart: boolean): [Node,
   const last = texts[texts.length - 1];
   // 글자가 아예 없는 줄(빈 줄)이면 그 줄 안에 커서를 세운다.
   return last ? [last, last.data.length] : [scope, 0];
+}
+
+/**
+ * 감춰 둔 기호(*, 괄호) 안에 커서를 두지 않는다. 그 안에서 치는 글은
+ * 다시 씌우기 전까지 보이지 않는다 (한글 조합 중이면 조합이 끝날 때까지).
+ * 기호 끝이면 기호 바로 뒤로, 머리면 바로 앞으로 옮긴다.
+ */
+function outsideHiddenMark(node: Text, offset: number): [Node, number] {
+  const mark = node.parentElement?.closest('.te-mark, .te-paren-mark');
+  const parent = mark?.parentNode;
+  if (!mark || !parent) return [node, offset];
+  const index = Array.prototype.indexOf.call(parent.childNodes, mark);
+  if (offset === 0) return [parent, index];
+  if (offset === node.data.length) return [parent, index + 1];
+  return [node, offset];
 }
 
 export function restoreCaret(root: HTMLElement, mark: CaretMark | null): void {

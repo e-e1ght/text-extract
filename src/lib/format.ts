@@ -639,3 +639,87 @@ export function insertPlainText(root: HTMLElement | null, text: string): void {
   }
   placeCaret(tail, last.length);
 }
+
+/**
+ * 괄호(곁말)·별표(강조) 안에서 줄을 바꿀 때, 두 줄 모두 서식이 남게 한다.
+ *
+ * 곁말·강조는 '같은 줄에서 닫힐 때만' 인정하므로, 그 안에서 줄을 바꾸면 양쪽 다
+ * 짝을 잃어 서식이 풀렸다(괄호는 짝 잃은 기호로 보고 지워지기까지 했다).
+ * 그래서 커서 자리에서 윗줄을 닫는 기호로 닫고, 아랫줄을 여는 기호로 다시 연다.
+ * 기호를 감춰 둔 때에만 한다 — 보이는 상태라면 글이 바뀌니까.
+ *
+ * 줄 나누기는 브라우저에 맡기지 않고 직접 한다. 감춘(display:none) 기호 옆에서
+ * 브라우저가 줄을 나누면 커서를 '보이는 자리' 로 옮겨 버려 기호가 엉뚱한 줄로 간다.
+ * 커서 뒤 내용을 서식째 잘라(extractContents) 새 줄로 옮긴다.
+ *
+ * lineBreak 면 새 줄(div) 대신 같은 줄 안에 <br> 을 넣는다 (Shift+Enter).
+ * 나눴으면 true — 브라우저의 줄바꿈은 막아야 한다.
+ */
+export function splitLineKeepingMarks(root: HTMLElement, lineBreak: boolean): boolean {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return false;
+  const range = sel.getRangeAt(0);
+  if (!range.collapsed || !root.contains(range.startContainer)) return false;
+
+  let line: Node = range.startContainer;
+  while (line.parentNode && line.parentNode !== root) line = line.parentNode;
+  if (line === root || line.nodeType !== Node.ELEMENT_NODE) return false;
+  const lineEl = line as HTMLElement;
+
+  const capture = root.closest('.te-capture');
+  const groups: Array<{ selector: string; hidden: boolean }> = [
+    { selector: '.te-paren-mark', hidden: Boolean(capture?.matches('.paren-aside:not(.roles-off)')) },
+    { selector: '.te-mark', hidden: Boolean(capture?.matches('.hide-marks')) },
+  ];
+
+  for (const { selector, hidden } of groups) {
+    if (!hidden) continue;
+    // 기호는 한 줄 안에서 언제나 여는 것·닫는 것 차례로 짝지어 있다.
+    const marks = Array.from(lineEl.querySelectorAll<HTMLElement>(selector));
+    for (let i = 0; i + 1 < marks.length; i += 2) {
+      const open = marks[i];
+      const close = marks[i + 1];
+      // 커서가 여는 기호 뒤, 닫는 기호 앞에 있어야 '안' 이다.
+      if (range.comparePoint(open, 0) >= 0 || range.comparePoint(close, 0) < 0) continue;
+
+      // 커서 앞이나 뒤에 글이 없으면 그냥 바꿔도 짝이 깨지지 않는다 — 빈 묶음을 만들지 않는다.
+      const head = document.createRange();
+      head.setStartAfter(open);
+      head.setEnd(range.startContainer, range.startOffset);
+      const tail = document.createRange();
+      tail.setStart(range.startContainer, range.startOffset);
+      tail.setEndBefore(close);
+      if (!head.toString() || !tail.toString()) return false;
+
+      // 원래 기호를 복제해 처음부터 감춘 기호로 넣는다.
+      const closer = close.cloneNode(true);
+      const opener = open.cloneNode(true);
+      range.insertNode(closer);
+
+      const rest = document.createRange();
+      rest.setStartAfter(closer);
+      rest.setEnd(lineEl, lineEl.childNodes.length);
+      const moved = rest.extractContents();
+
+      if (lineBreak) {
+        lineEl.appendChild(document.createElement('br'));
+        lineEl.appendChild(opener);
+        lineEl.appendChild(moved);
+      } else {
+        const next = document.createElement(lineEl.tagName);
+        next.appendChild(opener);
+        next.appendChild(moved);
+        root.insertBefore(next, lineEl.nextSibling);
+      }
+
+      const caret = document.createRange();
+      caret.setStartAfter(opener);
+      caret.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(caret);
+      remembered = caret.cloneRange();
+      return true;
+    }
+  }
+  return false;
+}
