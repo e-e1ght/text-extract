@@ -407,10 +407,30 @@ export function insertDivider(
   const after = document.createElement('div');
   after.appendChild(document.createElement('br'));
   root.insertBefore(after, rule.nextSibling);
+  afterInsertedLine(root, after);
+}
+
+/**
+ * 구분선·나눔선을 넣은 뒤 마무리.
+ *  - 커서를 새 빈 줄로 옮긴다. 그래야 이어서 하나 더 넣을 때 앞의 것 아래로 쌓인다
+ *    (예전에는 같은 자리에 넣어 먼저 넣은 선 앞에 끼어들었다).
+ *  - input 이벤트로 에디터에 알린다. 이걸 빠뜨리면 저장된 본문에 선이 빠져,
+ *    새로고침하거나 에디터를 다시 그릴 때 나중에 넣은 선이 사라졌다.
+ */
+function afterInsertedLine(root: HTMLElement, line: HTMLElement): void {
+  const caret = document.createRange();
+  caret.setStart(line, 0);
+  caret.collapse(true);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(caret);
+  remembered = caret.cloneRange();
+  root.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 /** 커서 자리에 페이지 나눔선을 넣는다. 저장할 때 이 선을 기준으로 쪼갠다. */
 export function insertPageBreak(root: HTMLElement): void {
+  restoreSelection(root);
   const sel = window.getSelection();
   const breakEl = document.createElement('div');
   breakEl.className = 'te-pagebreak';
@@ -428,6 +448,7 @@ export function insertPageBreak(root: HTMLElement): void {
   const line2 = document.createElement('div');
   line2.appendChild(document.createElement('br'));
   root.insertBefore(line2, breakEl.nextSibling);
+  afterInsertedLine(root, line2);
 }
 
 export function pageBreakCount(root: HTMLElement | null): number {

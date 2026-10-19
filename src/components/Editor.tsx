@@ -156,6 +156,9 @@ export function Editor({
       // 역할 span 을 다시 씌우면서 서식이 바깥 span 으로 옮겨진다 — 변수도 함께 옮긴다.
       syncInlineVars(root);
       restoreCaret(root, caret);
+      // 다시 씌우면서 글 노드가 바뀌어 기억해 둔 선택이 떨어져 나간다 — 새 자리로 다시 기억한다.
+      // (안 그러면 패널에서 구분선을 넣을 때 커서 자리를 못 찾아 본문 끝에 붙었다)
+      rememberSelection(root);
     }
   }, []);
 
