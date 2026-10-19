@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { copyNodeToClipboard, exportNode, releaseExported, type ExportedFile } from '../../lib/exporters';
+import {
+  copyNodeToClipboard, exportNode, pickSaveTarget, releaseExported, type ExportedFile,
+} from '../../lib/exporters';
 import { deleteSlot, downloadPreset, loadSlots, readPresetFile, saveSlot, type PresetSlot } from '../../lib/presets';
 import { stripAllFormatting } from '../../lib/format';
 import { useStore } from '../../store';
@@ -39,13 +41,16 @@ export function ExportPanel({
 
   const runExport = async () => {
     if (!captureNode) return;
+    // 저장 창은 누른 순간에만 열리므로 무엇보다 먼저 고른다.
+    const target = await pickSaveTarget(captureNode, options);
+    if (target === 'cancelled') return;
     setBusy(true);
     setStatus('저장하는 중…');
     releaseExported(exportedRef.current);
     exportedRef.current = [];
     setExported([]);
     try {
-      const files = await exportNode(captureNode, options);
+      const files = await exportNode(captureNode, options, target ?? undefined);
       exportedRef.current = files;
       setExported(files);
       announce('저장했습니다.');
@@ -108,6 +113,9 @@ export function ExportPanel({
         </button>
       </div>
       {status ? <p className="status-line" role="status">{status}</p> : null}
+      {'showSaveFilePicker' in window ? (
+        <Hint>저장할 위치를 묻는 창이 뜹니다. 나눔선으로 여러 장이 되면 담을 폴더를 고릅니다.</Hint>
+      ) : null}
       {exported.length > 0 ? (
         <p className="export-again">
           받아지지 않았다면 눌러 받으세요:
