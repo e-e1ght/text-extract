@@ -951,6 +951,15 @@ body {
   padding: 0;
 }
 .swatch:hover { transform: scale(1.08); }
+.recent-swatches {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+.recent-swatches.is-compact { margin-top: 2px; }
+.recent-label { font-size: 10.5px; color: var(--ui-dim); margin-right: 2px; }
+.swatch.recent { width: 18px; height: 18px; }
 .swatch-picker {
   width: 26px;
   height: 22px;

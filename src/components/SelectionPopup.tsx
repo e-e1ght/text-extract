@@ -8,6 +8,8 @@ import {
   type BlockKind, type ImageAlign, type InlineCommand,
 } from '../lib/format';
 import { fontFamilyOf } from '../lib/fonts';
+import { rememberColor } from '../lib/recentColors';
+import { RecentSwatches } from './ui';
 import type { Role } from '../lib/parse';
 import { useStore } from '../store';
 
@@ -167,6 +169,7 @@ export function SelectionPopup({
 
   /** 역할 전체에 적용하면 사이드바 색상과 그대로 연동된다. */
   const setColor = (color: string) => {
+    rememberColor(color);
     if (scope === 'selection') {
       applyTextColor(editorRoot, color);
       return;
@@ -175,6 +178,15 @@ export function SelectionPopup({
     else if (role === 'name') patch('roles', { name: color });
     else if (role === 'emph' || role === 'mark') patch('roles', { emphasis: color });
     else patch('roles', { narration: color });
+  };
+
+  const highlight = (color: string) => {
+    rememberColor(color);
+    applyHighlight(color);
+  };
+  const bar = (color: string) => {
+    rememberColor(color);
+    applyBar(editorRoot, color);
   };
 
   const baseSize = role === 'dialogue' ? settings.typography.dialogueFontSize : settings.typography.fontSize;
@@ -348,6 +360,7 @@ export function SelectionPopup({
             ))}
             <input type="color" className="swatch-picker" onChange={(e) => setColor(e.target.value)} />
           </div>
+          <RecentSwatches compact onPick={setColor} />
           <p className="popup-note">
             {scope === 'role'
               ? '패널의 색상 설정과 함께 바뀝니다.'
@@ -364,12 +377,13 @@ export function SelectionPopup({
               type="button"
               className="swatch"
               style={{ background: color }}
-              onClick={() => applyHighlight(color)}
+              onClick={() => highlight(color)}
               title={color}
             />
           ))}
-          <input type="color" className="swatch-picker" onChange={(e) => applyHighlight(e.target.value)} />
+          <input type="color" className="swatch-picker" onChange={(e) => highlight(e.target.value)} />
           <button type="button" className="popup-btn slim" onClick={() => clearHighlight(editorRoot)}>없음</button>
+          <RecentSwatches compact onPick={highlight} />
         </div>
       ) : null}
 
@@ -448,15 +462,16 @@ export function SelectionPopup({
                 className="swatch"
                 style={{ background: color }}
                 title={color}
-                onClick={() => applyBar(editorRoot, color)}
+                onClick={() => bar(color)}
               />
             ))}
             <input
               type="color"
               className="swatch-picker"
-              onChange={(event) => applyBar(editorRoot, event.target.value)}
+              onChange={(event) => bar(event.target.value)}
             />
           </div>
+          <RecentSwatches compact onPick={bar} />
           <p className="popup-note">
             {barAtSelection(editorRoot)
               ? '이미 세로선이 있어 색만 바뀝니다.'

@@ -1,4 +1,5 @@
 import { useId, type ReactNode } from 'react';
+import { rememberColor, useRecentColors } from '../lib/recentColors';
 
 export function Field({
   label, hint, children, variant,
@@ -57,20 +58,52 @@ export function NumberSlider({
 export function ColorField({
   label, value, onChange, allowAlpha = false,
 }: { label: string; value: string; onChange: (value: string) => void; allowAlpha?: boolean }) {
+  const pick = (color: string) => {
+    onChange(color);
+    rememberColor(color);
+  };
   return (
     <Field label={label} variant="color">
       <div className="color-row">
-        <input type="color" value={normalizeHex(value)} onChange={(e) => onChange(e.target.value)} />
+        <input type="color" value={normalizeHex(value)} onChange={(e) => pick(e.target.value)} />
         <input
           type="text"
           className="color-text"
           value={value}
           spellCheck={false}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => pick(e.target.value)}
           placeholder={allowAlpha ? '#000000 또는 rgba(...)' : '#000000'}
         />
       </div>
+      <RecentSwatches onPick={pick} />
     </Field>
+  );
+}
+
+/**
+ * 최근에 쓴 색 (최대 5개). 눌러 바로 다시 쓴다.
+ * 드래그 팝업 안에서도 쓰므로 누를 때 본문 선택이 풀리지 않게 mousedown 을 막는다.
+ */
+export function RecentSwatches({ onPick, compact = false }: { onPick: (color: string) => void; compact?: boolean }) {
+  const colors = useRecentColors();
+  if (colors.length === 0) return null;
+  return (
+    <div
+      className={`recent-swatches${compact ? ' is-compact' : ''}`}
+      onMouseDown={(event) => event.preventDefault()}
+    >
+      <span className="recent-label">최근</span>
+      {colors.map((color) => (
+        <button
+          key={color}
+          type="button"
+          className="swatch recent"
+          style={{ background: color }}
+          title={color}
+          onClick={() => onPick(color)}
+        />
+      ))}
+    </div>
   );
 }
 

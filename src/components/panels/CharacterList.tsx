@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { rememberColor } from '../../lib/recentColors';
 import { readFileAsDataUrl } from '../../lib/exporters';
 import { newCharacter, useStore } from '../../store';
 import { FileButton, Hint } from '../ui';
@@ -104,7 +105,10 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
                 <input
                   type="color"
                   value={hex(character.color, '#000000')}
-                  onChange={(event) => upsertCharacter(character.name, { color: event.target.value })}
+                  onChange={(event) => {
+                    upsertCharacter(character.name, { color: event.target.value });
+                    rememberColor(event.target.value);
+                  }}
                 />
               </label>
               <label className="char-field">
@@ -112,7 +116,10 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
                 <input
                   type="color"
                   value={hex(character.dialogueColor, roles.dialogue)}
-                  onChange={(event) => upsertCharacter(character.name, { dialogueColor: event.target.value })}
+                  onChange={(event) => {
+                    upsertCharacter(character.name, { dialogueColor: event.target.value });
+                    rememberColor(event.target.value);
+                  }}
                 />
               </label>
               <label className="char-field">
@@ -120,7 +127,10 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
                 <input
                   type="color"
                   value={hex(character.bubbleColor, settings.bubble.bubbleColor)}
-                  onChange={(event) => upsertCharacter(character.name, { bubbleColor: event.target.value })}
+                  onChange={(event) => {
+                    upsertCharacter(character.name, { bubbleColor: event.target.value });
+                    rememberColor(event.target.value);
+                  }}
                 />
               </label>
             </div>
