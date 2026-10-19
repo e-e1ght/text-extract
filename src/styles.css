@@ -1164,6 +1164,15 @@ textarea { resize: vertical; line-height: 1.5; }
 }
 .status-line { margin: 0; font-size: 11.5px; color: var(--ui-accent); }
 .status-line.is-error { color: var(--ui-danger); }
+.export-again {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--ui-dim);
+}
+.export-again a { color: var(--ui-accent); word-break: break-all; }
 .mini-color {
   display: inline-flex;
   align-items: center;

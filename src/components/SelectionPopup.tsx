@@ -123,6 +123,21 @@ export function SelectionPopup({
   // 하위 패널을 여닫으면 팝업 높이가 달라진다 — 그리자마자 자리를 다시 잡는다.
   useLayoutEffect(() => { update(); }, [panel, update]);
 
+  /*
+   * 서식을 줘도 선택은 그대로 남으므로 팝업도 떠 있다 — 한 번 드래그로 볼드·형광 등을
+   * 이어서 줄 수 있게. 닫는 것은 다른 곳을 누르거나(선택이 풀림) Esc 를 눌렀을 때뿐이다.
+   */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !hasSelectionInside(editorRoot)) return;
+      window.getSelection()?.collapseToEnd();
+      setPosition(null);
+      setPanel('none');
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [editorRoot]);
+
   useEffect(() => {
     document.addEventListener('selectionchange', update);
     window.addEventListener('scroll', update, true);

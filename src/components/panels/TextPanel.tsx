@@ -431,6 +431,7 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
             onClick={() => {
               if (!editorRoot) return;
               editorRoot.querySelectorAll('[data-te-page-break]').forEach((el) => el.remove());
+              editorRoot.dispatchEvent(new Event('input', { bubbles: true }));
               setBreaks(0);
             }}
           >

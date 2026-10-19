@@ -177,9 +177,30 @@ function safeName(name: string): string {
   return cleaned || '발췌';
 }
 
-export async function exportNode(node: HTMLElement, options: ExportOptions): Promise<void> {
+/** 저장한 파일. 브라우저가 자동 다운로드를 막았을 때 직접 눌러 받을 수 있게 돌려준다. */
+export interface ExportedFile {
+  name: string;
+  url: string;
+}
+
+/**
+ * 그림을 만들어 내려받는다.
+ *
+ * 브라우저(특히 크롬)는 클릭 없이 시작된 다운로드가 이어지면 '여러 파일 자동 다운로드'
+ * 로 보고 막아 버리고, 그 상태는 새로고침해야 풀린다. 그림을 만드는 데 몇 초가 걸려
+ * 다운로드가 클릭에서 떨어져 시작되므로 두 번째 저장부터 막히는 일이 생겼다.
+ * 그래서 만든 파일의 주소를 돌려줘, 화면에서 직접 눌러 받을 수 있게 한다.
+ * 주소는 다음 저장 때 회수한다(releaseExported).
+ */
+export async function exportNode(node: HTMLElement, options: ExportOptions): Promise<ExportedFile[]> {
   const { format, scale, quality, fileName } = options;
   const base = safeName(fileName);
+  const files: ExportedFile[] = [];
+  const deliver = (blob: Blob, name: string) => {
+    const url = URL.createObjectURL(blob);
+    files.push({ name, url });
+    triggerDownload(url, name);
+  };
 
   await withPreparedNode(node, async (fontEmbedCSS) => {
     const pager = paginate(node);
@@ -226,16 +247,14 @@ export async function exportNode(node: HTMLElement, options: ExportOptions): Pro
           }
           pdf.addImage(dataUrl, 'PNG', 0, 0, width, height);
         }
-        pdf?.save(`${base}.pdf`);
+        if (pdf) deliver(pdf.output('blob'), `${base}.pdf`);
         return;
       }
 
       for (let page = 0; page < pager.pages; page += 1) {
         pager.show(page);
         const blob = await shot(format);
-        const url = URL.createObjectURL(blob);
-        triggerDownload(url, `${base}${suffix(page)}.${format === 'jpeg' ? 'jpg' : 'png'}`);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        deliver(blob, `${base}${suffix(page)}.${format === 'jpeg' ? 'jpg' : 'png'}`);
         // 브라우저가 연속 다운로드를 막지 않도록 살짝 간격을 둔다.
         if (page < pager.pages - 1) await new Promise((r) => setTimeout(r, 350));
       }
@@ -243,6 +262,11 @@ export async function exportNode(node: HTMLElement, options: ExportOptions): Pro
       pager.restore();
     }
   });
+  return files;
+}
+
+export function releaseExported(files: ExportedFile[]): void {
+  files.forEach((file) => URL.revokeObjectURL(file.url));
 }
 
 /** 클립보드 복사 (PNG). 지원하지 않는 브라우저에서는 false 를 돌려준다. */

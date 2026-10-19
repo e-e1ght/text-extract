@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { copyNodeToClipboard, exportNode } from '../../lib/exporters';
+import { useEffect, useRef, useState } from 'react';
+import { copyNodeToClipboard, exportNode, releaseExported, type ExportedFile } from '../../lib/exporters';
 import { deleteSlot, downloadPreset, loadSlots, readPresetFile, saveSlot, type PresetSlot } from '../../lib/presets';
 import { stripAllFormatting } from '../../lib/format';
 import { useStore } from '../../store';
@@ -16,6 +16,10 @@ export function ExportPanel({
   const [status, setStatus] = useState('');
   const [slots, setSlots] = useState<PresetSlot[]>(() => loadSlots());
   const [slotName, setSlotName] = useState('');
+  // 방금 저장한 파일 — 브라우저가 자동 다운로드를 막았으면 여기서 직접 눌러 받는다.
+  const [exported, setExported] = useState<ExportedFile[]>([]);
+  const exportedRef = useRef<ExportedFile[]>([]);
+  useEffect(() => () => releaseExported(exportedRef.current), []);
 
   const announce = (message: string) => {
     setStatus(message);
@@ -32,8 +36,13 @@ export function ExportPanel({
     if (!captureNode) return;
     setBusy(true);
     setStatus('저장하는 중…');
+    releaseExported(exportedRef.current);
+    exportedRef.current = [];
+    setExported([]);
     try {
-      await exportNode(captureNode, options);
+      const files = await exportNode(captureNode, options);
+      exportedRef.current = files;
+      setExported(files);
       announce('저장했습니다.');
     } catch (error) {
       announce(error instanceof Error ? `저장 실패: ${error.message}` : '저장에 실패했습니다.');
@@ -94,6 +103,14 @@ export function ExportPanel({
         </button>
       </div>
       {status ? <p className="status-line" role="status">{status}</p> : null}
+      {exported.length > 0 ? (
+        <p className="export-again">
+          받아지지 않았다면 눌러 받으세요:
+          {exported.map((file) => (
+            <a key={file.url} href={file.url} download={file.name}>{file.name}</a>
+          ))}
+        </p>
+      ) : null}
 
       <hr className="divider" />
 
