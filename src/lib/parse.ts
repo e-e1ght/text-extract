@@ -3,6 +3,7 @@
  *  - 따옴표( " “ ” 「」 『』 ) 안의 텍스트는 대사. 줄바꿈을 넘어가도 닫힐 때까지 대사로 본다.
  *  - *…* 또는 **…** 안의 텍스트는 강조 서술.
  *  - (…) 안의 텍스트는 곁말. '괄호 안 작게' 를 켜면 작은 회색 글씨가 된다.
+ *    괄호 안에 볼드·이탤릭을 주어 글이 여러 조각으로 나뉘어도 같은 줄에서 닫히면 곁말이다.
  *  - 그 외 텍스트는 서술.
  *  - 줄 머리의 `이름:` 은 캐릭터 이름으로 본다.
  */
@@ -26,13 +27,20 @@ interface Piece {
   role: Role;
   /** 이 조각이 속한 화자 (캐릭터별 색상 적용용) */
   speaker?: string;
+  /** 곁말 조각이 여는·닫는 괄호를 품고 있는지 (곁말이 여러 조각에 걸칠 수 있어서) */
+  parenOpen?: boolean;
+  parenClose?: boolean;
 }
+
+const PAREN_CLOSE = /[)\uFF09]/;
 
 interface ScanState {
   /** 열려 있는 따옴표의 닫는 문자. null 이면 대사 밖 */
   closer: string | null;
   /** *…* 강조가 열려 있는지 */
   emph: boolean;
+  /** (…) 곁말이 열려 있는지 — 괄호 안에 서식을 주면 글이 조각나므로 조각을 넘어 이어진다 */
+  paren: boolean;
   /** 현재 블록(줄)의 시작 부분인지 — 캐릭터 이름 판정용 */
   atLineStart: boolean;
   /** 가장 최근에 등장한 캐릭터 이름 */
@@ -40,14 +48,17 @@ interface ScanState {
 }
 
 export function createScanState(): ScanState {
-  return { closer: null, emph: false, atLineStart: true, speaker: '' };
+  return { closer: null, emph: false, paren: false, atLineStart: true, speaker: '' };
 }
 
 /**
  * 한 텍스트 조각을 역할별로 쪼갠다. state 는 호출 간에 이어지며,
  * 따옴표가 여러 줄에 걸쳐 열려 있는 상황을 그대로 반영한다.
+ *
+ * lookahead 는 같은 줄에서 이 조각 뒤에 오는 글이다. 사용자가 서식을 주면 한 줄이
+ * 여러 텍스트 노드로 나뉘는데, 닫는 짝(`)`, `*`)이 뒤 노드에 있어도 찾을 수 있게 한다.
  */
-export function scanText(text: string, state: ScanState): Piece[] {
+export function scanText(text: string, state: ScanState, lookahead = ''): Piece[] {
   const pieces: Piece[] = [];
   let buffer = '';
   let bufferRole: Role = state.closer ? 'dialogue' : state.emph ? 'emph' : 'narration';
@@ -65,7 +76,7 @@ export function scanText(text: string, state: ScanState): Piece[] {
 
   // 줄 머리 캐릭터 이름 (대사 밖일 때만)
   let index = 0;
-  if (state.atLineStart && !state.closer && !state.emph) {
+  if (state.atLineStart && !state.closer && !state.emph && !state.paren) {
     const match = NAME_RE.exec(text);
     if (match && match[1].trim()) {
       state.speaker = match[1].trim();
@@ -75,8 +86,28 @@ export function scanText(text: string, state: ScanState): Piece[] {
   }
   if (text.length > 0) state.atLineStart = false;
 
+  /** 곁말을 닫는 괄호까지(이 조각에서 닫히지 않으면 조각 끝까지) 떼어 낸다 */
+  const takeParen = (open: boolean) => {
+    flush();
+    const from = open ? index + 1 : index;
+    const closeAt = text.slice(from).search(PAREN_CLOSE);
+    const end = closeAt >= 0 ? from + closeAt + 1 : text.length;
+    pieces.push({
+      text: text.slice(index, end), role: 'paren', speaker: state.speaker,
+      parenOpen: open, parenClose: closeAt >= 0,
+    });
+    state.paren = closeAt < 0;
+    bufferRole = state.emph ? 'emph' : 'narration';
+    index = end;
+  };
+
   while (index < text.length) {
     const ch = text[index];
+
+    if (state.paren) {
+      takeParen(false);
+      continue;
+    }
 
     if (state.closer) {
       buffer += ch;
@@ -102,16 +133,9 @@ export function scanText(text: string, state: ScanState): Piece[] {
      * (…) 곁말. *…* 과 같은 규칙으로 '같은 줄에서 닫힐 때만' 본다 —
      * 여는 괄호를 막 입력한 순간 뒷글자가 통째로 작아지지 않게 하기 위함.
      */
-    if (ch === '(' || ch === '\uFF08') {
-      const closeAt = text.slice(index + 1).search(/[)\uFF09]/);
-      if (closeAt >= 0) {
-        flush();
-        const end = index + 1 + closeAt + 1;
-        pieces.push({ text: text.slice(index, end), role: 'paren', speaker: state.speaker });
-        bufferRole = state.emph ? 'emph' : 'narration';
-        index = end;
-        continue;
-      }
+    if ((ch === '(' || ch === '\uFF08') && PAREN_CLOSE.test(text.slice(index + 1) + lookahead)) {
+      takeParen(true);
+      continue;
     }
 
     if (ch === '*') {
@@ -133,7 +157,7 @@ export function scanText(text: string, state: ScanState): Piece[] {
 
       // 닫는 짝이 같은 줄에 있을 때만 강조로 본다.
       // 그래야 사용자가 여는 기호를 막 입력했을 때 글자가 사라지지 않는다.
-      if (text.slice(index + marker.length).includes(marker)) {
+      if ((text.slice(index + marker.length) + lookahead).includes(marker)) {
         takeMarker();
         state.emph = true;
         bufferRole = 'emph';
@@ -158,6 +182,7 @@ export function scanText(text: string, state: ScanState): Piece[] {
 /** 블록(줄) 경계를 넘을 때 호출 — 강조는 줄을 넘기지 않고, 이름 판정은 다시 켠다. */
 export function enterNewBlock(state: ScanState): void {
   state.emph = false;
+  state.paren = false;
   state.atLineStart = true;
 }
 
@@ -203,6 +228,11 @@ export function unwrapRoles(root: HTMLElement): void {
     parent.removeChild(el);
   });
   root.normalize();
+}
+
+/** 감춰 둔 괄호 기호가 여는 쪽인지 */
+export function isOpenParenMark(mark: Element): boolean {
+  return /^[(\uFF08]$/.test(mark.textContent ?? '');
 }
 
 function markSpan(className: string, text: string): HTMLElement {
@@ -281,14 +311,22 @@ export function markupRoles(root: HTMLElement): void {
     node = walker.nextNode();
   }
 
-  for (const textNode of textNodes) {
+  // 같은 줄에서 각 노드 뒤에 오는 글 — 닫는 짝이 다른 노드에 있어도 찾을 수 있게.
+  const lookaheads: string[] = new Array(textNodes.length);
+  let rest = '';
+  for (let i = textNodes.length - 1; i >= 0; i -= 1) {
+    lookaheads[i] = rest;
+    rest = boundaries.has(textNodes[i]) ? '' : textNodes[i].data + rest;
+  }
+
+  for (const [nodeIndex, textNode] of textNodes.entries()) {
     // 따옴표가 닫히지 않은 채 줄이 바뀌면, 이 줄의 첫 대사는 앞 줄에서 이어진 것이다.
     let carriedOver = false;
     if (boundaries.has(textNode)) {
       carriedOver = state.closer !== null;
       enterNewBlock(state);
     }
-    const pieces = scanText(textNode.data, state);
+    const pieces = scanText(textNode.data, state, lookaheads[nodeIndex]);
     if (pieces.length === 0) continue;
 
     const fragment = document.createDocumentFragment();
@@ -323,9 +361,11 @@ export function markupRoles(root: HTMLElement): void {
         if (hasTail) span.appendChild(markSpan('te-quote', tail));
       } else if (piece.role === 'paren') {
         // 괄호 기호만 따로 감싸 둔다 — 글은 남기고 기호만 감출 수 있게.
-        span.appendChild(markSpan('te-paren-mark', piece.text[0]));
-        span.appendChild(document.createTextNode(piece.text.slice(1, -1)));
-        span.appendChild(markSpan('te-paren-mark', piece.text[piece.text.length - 1]));
+        // 괄호 안에 서식이 있으면 곁말이 여러 조각으로 나뉘어, 기호는 첫·끝 조각에만 있다.
+        const body = piece.text.slice(piece.parenOpen ? 1 : 0, piece.parenClose ? -1 : undefined);
+        if (piece.parenOpen) span.appendChild(markSpan('te-paren-mark', piece.text[0]));
+        if (body) span.appendChild(document.createTextNode(body));
+        if (piece.parenClose) span.appendChild(markSpan('te-paren-mark', piece.text[piece.text.length - 1]));
       } else {
         span.textContent = piece.text;
       }

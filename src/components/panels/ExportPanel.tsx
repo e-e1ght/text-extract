@@ -21,6 +21,12 @@ export function ExportPanel({
     setStatus(message);
     window.setTimeout(() => setStatus(''), 2600);
   };
+  // 서식 저장 칸은 아래쪽에 있어 위의 알림이 눈에 띄지 않는다 — 따로 보여 준다.
+  const [presetStatus, setPresetStatus] = useState('');
+  const announcePreset = (message: string) => {
+    setPresetStatus(message);
+    window.setTimeout(() => setPresetStatus(''), 2600);
+  };
 
   const runExport = async () => {
     if (!captureNode) return;
@@ -138,7 +144,15 @@ export function ExportPanel({
       <Field label="서식 파일" hint="다른 사람과 공유할 때">
         <div className="button-row">
           <button type="button" className="mini-button"
-            onClick={() => downloadPreset(slotName || options.fileName, settings)}>
+            onClick={async () => {
+              try {
+                if (await downloadPreset(slotName || options.fileName, settings)) {
+                  announcePreset('서식 파일을 내보냈습니다.');
+                }
+              } catch {
+                announcePreset('서식 파일을 내보내지 못했습니다.');
+              }
+            }}>
             파일로 내보내기
           </button>
           <label className="file-button" htmlFor="preset-import">파일 불러오기</label>
@@ -154,14 +168,15 @@ export function ExportPanel({
               try {
                 const preset = await readPresetFile(file);
                 replaceSettings(preset.settings);
-                announce(`'${preset.name}' 서식을 불러왔습니다.`);
+                announcePreset(`'${preset.name}' 서식을 불러왔습니다.`);
               } catch (error) {
-                announce(error instanceof Error ? error.message : '서식 파일을 읽지 못했습니다.');
+                announcePreset(error instanceof Error ? error.message : '서식 파일을 읽지 못했습니다.');
               }
             }}
           />
         </div>
       </Field>
+      {presetStatus ? <p className="status-line" role="status">{presetStatus}</p> : null}
 
       <hr className="divider" />
 

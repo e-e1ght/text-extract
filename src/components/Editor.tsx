@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { collapseBlankLines, markupRoles } from '../lib/parse';
+import { collapseBlankLines, isOpenParenMark, markupRoles } from '../lib/parse';
 import { restoreCaret, saveCaret } from '../lib/caret';
 import { ensureWebFont } from '../lib/webfonts';
 import {
@@ -109,14 +109,30 @@ export function Editor({
     /*
      * 짝을 잃은 괄호 기호를 떨군다.
      * 글의 일부만 골라 지우면, 감춰 둔 여는·닫는 기호 가운데 하나만 남는 일이
-     * 생긴다. 괄호 묶음은 언제나 기호 둘로 만들어지므로, 둘이 아니면 지우다 만
-     * 자리다 — 글은 두고 기호만 떨군다.
+     * 생긴다. 괄호 묶음은 언제나 한 줄 안에서 여는·닫는 기호 짝으로 만들어지므로,
+     * 짝이 없으면 지우다 만 자리다 — 글은 두고 기호만 떨군다.
+     * 괄호 안에 서식을 주면 곁말이 여러 span 으로 나뉘므로 span 이 아니라 줄 단위로 짝짓는다.
      */
-    root.querySelectorAll('.te-paren').forEach((span) => {
-      const marks = span.querySelectorAll('.te-paren-mark');
-      if (marks.length === 2) return;
-      marks.forEach((mark) => mark.remove());
+    let openMark: HTMLElement | null = null;
+    let markLine: Node | null = null;
+    root.querySelectorAll<HTMLElement>('.te-paren-mark').forEach((mark) => {
+      let line: Node = mark;
+      while (line.parentNode && line.parentNode !== root) line = line.parentNode;
+      if (line !== markLine) {
+        openMark?.remove();
+        openMark = null;
+        markLine = line;
+      }
+      if (isOpenParenMark(mark)) {
+        openMark?.remove();
+        openMark = mark;
+      } else if (openMark) {
+        openMark = null;
+      } else {
+        mark.remove();
+      }
     });
+    (openMark as HTMLElement | null)?.remove();
 
     if (onlyHiddenMarksLeft(root)) {
       const line = document.createElement('div');
