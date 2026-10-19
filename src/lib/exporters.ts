@@ -177,6 +177,81 @@ function safeName(name: string): string {
   return cleaned || '발췌';
 }
 
+/** 만든 그림을 써 넣을 곳 (저장 창으로 고른 파일·폴더) */
+export type SaveTarget = (blob: Blob, name: string) => Promise<void>;
+
+interface WritableFile {
+  createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void> }>;
+}
+interface PickerWindow {
+  showSaveFilePicker?: (options: unknown) => Promise<WritableFile>;
+  showDirectoryPicker?: (options: unknown) => Promise<{
+    getFileHandle: (name: string, options?: { create?: boolean }) => Promise<WritableFile>;
+  }>;
+}
+
+const FILE_TYPES: Record<ExportOptions['format'], { description: string; accept: Record<string, string[]> }> = {
+  png: { description: 'PNG 이미지', accept: { 'image/png': ['.png'] } },
+  jpeg: { description: 'JPG 이미지', accept: { 'image/jpeg': ['.jpg', '.jpeg'] } },
+  pdf: { description: 'PDF 문서', accept: { 'application/pdf': ['.pdf'] } },
+};
+
+async function writeTo(handle: WritableFile, blob: Blob): Promise<void> {
+  const writable = await handle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+}
+
+/**
+ * 저장할 자리를 저장 창으로 먼저 고른다. **클릭하자마자, 다른 await 보다 먼저** 불러야 한다
+ * (저장 창은 사용자가 막 누른 순간에만 열린다).
+ *
+ * 다운로드로 내려받으면 브라우저가 두 번째부터 소리 없이 버리는 일이 있었다(웨일 등 —
+ * '저장했습니다' 는 뜨는데 파일이 없다). 저장 창으로 고른 파일에 직접 쓰면 다운로드를
+ * 거치지 않으므로 막힐 일이 없다. 여러 장이면 폴더를 한 번 고른다.
+ *
+ * 저장 창을 쓸 수 없으면 null (다운로드로 넘어간다), 사용자가 닫았으면 'cancelled'.
+ */
+export async function pickSaveTarget(
+  node: HTMLElement, options: ExportOptions,
+): Promise<SaveTarget | null | 'cancelled'> {
+  const picker = window as unknown as PickerWindow;
+  // 다른 창 안에 끼워진 페이지에서는 저장 창이 막혀 있다.
+  if (window.self !== window.top) return null;
+  const pages = node.querySelectorAll('.editor [data-te-page-break]').length + 1;
+  const ext = options.format === 'jpeg' ? 'jpg' : options.format;
+
+  try {
+    if (pages === 1 || options.format === 'pdf') {
+      if (!picker.showSaveFilePicker) return null;
+      const handle = await picker.showSaveFilePicker({
+        suggestedName: `${safeName(options.fileName)}.${ext}`,
+        types: [FILE_TYPES[options.format]],
+      });
+      return (blob) => writeTo(handle, blob);
+    }
+    if (!picker.showDirectoryPicker) return null;
+    const folder = await picker.showDirectoryPicker({ mode: 'readwrite', id: 'text-extract-export' });
+    return async (blob, name) => {
+      // 같은 이름이 이미 있으면 덮어쓰지 않고 (2), (3)… 을 붙인다.
+      const dot = name.lastIndexOf('.');
+      let candidate = name;
+      for (let n = 2; n < 1000; n += 1) {
+        try {
+          await folder.getFileHandle(candidate);
+          candidate = `${name.slice(0, dot)} (${n})${name.slice(dot)}`;
+        } catch {
+          break;
+        }
+      }
+      await writeTo(await folder.getFileHandle(candidate, { create: true }), blob);
+    };
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return 'cancelled';
+    return null;
+  }
+}
+
 /** 저장한 파일. 브라우저가 자동 다운로드를 막았을 때 직접 눌러 받을 수 있게 돌려준다. */
 export interface ExportedFile {
   name: string;
@@ -192,11 +267,17 @@ export interface ExportedFile {
  * 그래서 만든 파일의 주소를 돌려줘, 화면에서 직접 눌러 받을 수 있게 한다.
  * 주소는 다음 저장 때 회수한다(releaseExported).
  */
-export async function exportNode(node: HTMLElement, options: ExportOptions): Promise<ExportedFile[]> {
+export async function exportNode(
+  node: HTMLElement, options: ExportOptions, target?: SaveTarget,
+): Promise<ExportedFile[]> {
   const { format, scale, quality, fileName } = options;
   const base = safeName(fileName);
   const files: ExportedFile[] = [];
-  const deliver = (blob: Blob, name: string) => {
+  const deliver = async (blob: Blob, name: string) => {
+    if (target) {
+      await target(blob, name);
+      return;
+    }
     const url = URL.createObjectURL(blob);
     files.push({ name, url });
     triggerDownload(url, name);
@@ -247,14 +328,14 @@ export async function exportNode(node: HTMLElement, options: ExportOptions): Pro
           }
           pdf.addImage(dataUrl, 'PNG', 0, 0, width, height);
         }
-        if (pdf) deliver(pdf.output('blob'), `${base}.pdf`);
+        if (pdf) await deliver(pdf.output('blob'), `${base}.pdf`);
         return;
       }
 
       for (let page = 0; page < pager.pages; page += 1) {
         pager.show(page);
         const blob = await shot(format);
-        deliver(blob, `${base}${suffix(page)}.${format === 'jpeg' ? 'jpg' : 'png'}`);
+        await deliver(blob, `${base}${suffix(page)}.${format === 'jpeg' ? 'jpg' : 'png'}`);
         // 브라우저가 연속 다운로드를 막지 않도록 살짝 간격을 둔다.
         if (page < pager.pages - 1) await new Promise((r) => setTimeout(r, 350));
       }

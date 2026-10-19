@@ -119,16 +119,37 @@ export function clearHighlight(root: HTMLElement): void {
  * 같은 키워드 값을 넣어버려 이후 크기 조절이 먹지 않는다. 그래서 반드시 끄고
  * <font size="7"> 를 만든 뒤 px 단위 span 으로 바꿔친다.
  */
+/**
+ * 바꿔 끼운 요소들을 다시 선택한다.
+ * 선택이 바꿔 끼우기 전 요소(<font> 등)에 걸려 있으면 그 요소가 빠질 때 선택도 풀려,
+ * 드래그 팝업이 닫혀 버린다 — 이어서 다른 서식을 줄 수 있게 새 요소를 고른다.
+ */
+function selectReplaced(elements: HTMLElement[]): void {
+  if (elements.length === 0) return;
+  const first = elements[0];
+  const last = elements[elements.length - 1];
+  const range = document.createRange();
+  range.setStart(first, 0);
+  range.setEnd(last, last.childNodes.length);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+  remembered = range.cloneRange();
+}
+
 export function applyFontSize(root: HTMLElement, px: number): void {
   setCssStyling(false);
   document.execCommand('fontSize', false, FONT_SIZE_SENTINEL);
 
+  const replaced: HTMLElement[] = [];
   root.querySelectorAll<HTMLElement>(`font[size="${FONT_SIZE_SENTINEL}"]`).forEach((fontEl) => {
     const span = document.createElement('span');
     span.style.fontSize = `${px}px`;
     while (fontEl.firstChild) span.appendChild(fontEl.firstChild);
     fontEl.parentNode?.replaceChild(span, fontEl);
+    replaced.push(span);
   });
+  selectReplaced(replaced);
 
   // styleWithCSS 를 끄지 못하는 브라우저가 남긴 키워드 크기를 px 로 정리한다.
   root.querySelectorAll<HTMLElement>('span[style*="large"], span[style*="small"]').forEach((el) => {
@@ -146,12 +167,15 @@ export function applyFontFamily(root: HTMLElement, family: string): void {
   setCssStyling(true);
   document.execCommand('fontName', false, family);
   // 일부 브라우저는 여전히 <font face> 를 만든다.
+  const replaced: HTMLElement[] = [];
   root.querySelectorAll<HTMLElement>('font[face]').forEach((fontEl) => {
     const span = document.createElement('span');
     span.style.fontFamily = fontEl.getAttribute('face') ?? family;
     while (fontEl.firstChild) span.appendChild(fontEl.firstChild);
     fontEl.parentNode?.replaceChild(span, fontEl);
+    replaced.push(span);
   });
+  selectReplaced(replaced);
   syncInlineVars(root);
 }
 
@@ -302,6 +326,7 @@ export function removeBlock(root: HTMLElement, kind?: BlockKind): HTMLElement | 
   const line = document.createElement('span');
   while (body?.firstChild) line.appendChild(body.firstChild);
   parent.replaceChild(line, block);
+  selectReplaced([line]);
   return line;
 }
 
