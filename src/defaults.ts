@@ -1,4 +1,27 @@
-import type { Settings } from './types';
+import type { ImageSlot, Settings } from './types';
+
+function slot(size: number): ImageSlot {
+  return {
+    enabled: false,
+    url: '',
+    size,
+    length: 0,
+    fit: 'cover',
+    scale: 100,
+    x: 50,
+    y: 50,
+    marginTop: 0,
+    marginRight: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+    borderWidth: 0,
+    borderColor: '#d8d8de',
+    radius: 0,
+    shadow: false,
+    shadowBlur: 16,
+    shadowOpacity: 0.25,
+  };
+}
 
 export const FONT_OPTIONS = [
   { label: '프리텐다드 (Pretendard)', value: "'Pretendard Variable', Pretendard, sans-serif" },
@@ -128,6 +151,14 @@ export const DEFAULT_SETTINGS: Settings = {
   characters: {},
   customFonts: [],
   stickers: [],
+  imageSlots: {
+    enabled: false,
+    // 위·아래는 높이, 왼쪽·오른쪽은 너비
+    top: { ...slot(180), marginBottom: 24 },
+    bottom: { ...slot(180), marginTop: 24 },
+    left: { ...slot(160), marginRight: 24 },
+    right: { ...slot(160), marginLeft: 24 },
+  },
   previewZoom: 1,
   exportOptions: {
     format: 'png',

@@ -4,7 +4,7 @@ import {
 } from 'react';
 import { DEFAULT_SETTINGS, SAMPLE_CONTENT } from './defaults';
 import { CONTENT_KEY, SETTINGS_KEY, loadState, saveState } from './lib/storage';
-import type { CharacterStyle, Settings } from './types';
+import type { CharacterStyle, Settings, SlotSide } from './types';
 
 type Plain = Record<string, unknown>;
 const isPlainObject = (v: unknown): v is Plain =>
@@ -89,6 +89,9 @@ interface StoreValue {
   /** 배경 이미지 위치를 드래그로 조절하는 중인지 (저장하지 않음) */
   adjustingImage: boolean;
   setAdjustingImage: (value: boolean) => void;
+  /** 이미지 슬롯을 드래그로 조절하는 중이면 그 칸 (저장하지 않음) */
+  adjustingSlot: SlotSide | null;
+  setAdjustingSlot: (value: SlotSide | null) => void;
   /** 지금 고른 스티커 id (저장하지 않음) */
   selectedSticker: string | null;
   setSelectedSticker: (id: string | null) => void;
@@ -99,6 +102,7 @@ const StoreContext = createContext<StoreValue | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [settings, setSettingsState] = useState<Settings>(DEFAULT_SETTINGS);
   const [adjustingImage, setAdjustingImage] = useState(false);
+  const [adjustingSlot, setAdjustingSlot] = useState<SlotSide | null>(null);
   const [selectedSticker, setSelectedSticker] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -182,11 +186,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       settings, setSettings, patch, set, replaceSettings, resetSettings,
       upsertCharacter, initialContent: initialContent.current, saveContent,
-      adjustingImage, setAdjustingImage, selectedSticker, setSelectedSticker,
-      ready, saveError,
+      adjustingImage, setAdjustingImage, adjustingSlot, setAdjustingSlot,
+      selectedSticker, setSelectedSticker, ready, saveError,
     }),
     [settings, setSettings, patch, set, replaceSettings, resetSettings,
-     upsertCharacter, saveContent, adjustingImage, selectedSticker, ready, saveError],
+     upsertCharacter, saveContent, adjustingImage, adjustingSlot, selectedSticker, ready, saveError],
   );
 
   /*

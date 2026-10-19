@@ -3,7 +3,7 @@ import { collapseBlankLines, isOpenParenMark, markupRoles } from '../lib/parse';
 import { restoreCaret, saveCaret } from '../lib/caret';
 import { ensureWebFont } from '../lib/webfonts';
 import {
-  blockAtSelection, insertPlainText, splitLineKeepingMarks, rememberSelection, selectImage, selectionImage,
+  blockAtSelection, insertPlainText, joinLinesKeepingMarks, splitLineKeepingMarks, rememberSelection, selectImage, selectionImage,
   syncInlineVars,
 } from '../lib/format';
 
@@ -235,8 +235,14 @@ export function Editor({
     const root = rootRef.current;
     if (!root || !autoParse) return undefined;
     const onBeforeInput = (event: InputEvent) => {
-      if (event.inputType !== 'insertParagraph' && event.inputType !== 'insertLineBreak') return;
-      if (!splitLineKeepingMarks(root, event.inputType === 'insertLineBreak')) return;
+      const { inputType } = event;
+      const handled = inputType === 'insertParagraph' || inputType === 'insertLineBreak'
+        ? splitLineKeepingMarks(root, inputType === 'insertLineBreak')
+        // 줄 머리 Backspace·줄 끝 Delete 로 줄을 합칠 때도 서식이 풀리지 않게 (joinLinesKeepingMarks)
+        : inputType === 'deleteContentBackward' || inputType === 'deleteContentForward'
+          ? joinLinesKeepingMarks(root, inputType === 'deleteContentForward')
+          : false;
+      if (!handled) return;
       event.preventDefault();
       window.clearTimeout(timerRef.current);
       remark();
