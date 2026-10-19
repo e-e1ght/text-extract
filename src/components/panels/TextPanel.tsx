@@ -7,7 +7,8 @@ import {
 } from '../../lib/format';
 import { deleteFontFile, fontFamilyOf, installFont, saveFontFile } from '../../lib/fonts';
 import { useStore } from '../../store';
-import { ButtonGroup, Field, FileButton, Hint, NumberSlider, Select } from '../ui';
+import { rememberColor } from '../../lib/recentColors';
+import { ButtonGroup, Field, FileButton, Hint, NumberSlider, RecentSwatches, Select } from '../ui';
 
 export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
   const { settings, patch, set } = useStore();
@@ -28,6 +29,23 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
 
   const guard = (run: (root: HTMLElement) => void) => () => {
     if (editorRoot) run(editorRoot);
+  };
+
+  // 색을 쓰는 곳은 모두 최근 색으로 남긴다.
+  const setBar = (color: string) => {
+    patch('roles', { barColor: color });
+    rememberColor(color);
+    if (editorRoot) applyBar(editorRoot, color);
+  };
+  const highlight = (color: string) => {
+    if (!editorRoot) return;
+    rememberColor(color);
+    applyHighlight(color);
+  };
+  const textColor = (color: string) => {
+    if (!editorRoot) return;
+    rememberColor(color);
+    applyTextColor(editorRoot, color);
   };
 
   /**
@@ -70,19 +88,20 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
           <input
             type="color"
             value={/^#[0-9a-f]{6}$/i.test(settings.roles.barColor) ? settings.roles.barColor : '#e8bf4e'}
-            onChange={(e) => {
-              patch('roles', { barColor: e.target.value });
-              if (editorRoot) applyBar(editorRoot, e.target.value);
-            }}
+            onChange={(e) => setBar(e.target.value)}
           />
           <input
             type="text"
             className="color-text"
             value={settings.roles.barColor}
             spellCheck={false}
-            onChange={(e) => patch('roles', { barColor: e.target.value })}
+            onChange={(e) => {
+              patch('roles', { barColor: e.target.value });
+              rememberColor(e.target.value);
+            }}
           />
         </div>
+        <RecentSwatches onPick={setBar} />
       </Field>
 
       <Field label="하이라이트">
@@ -94,12 +113,13 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
               className="swatch"
               style={{ background: color }}
               title={color}
-              onClick={guard(() => applyHighlight(color))}
+              onClick={() => highlight(color)}
             />
           ))}
-          <input type="color" className="swatch-picker" onChange={(e) => applyHighlight(e.target.value)} />
+          <input type="color" className="swatch-picker" onChange={(e) => highlight(e.target.value)} />
           <button type="button" className="swatch-clear" onClick={guard(clearHighlight)}>없음</button>
         </div>
+        <RecentSwatches onPick={highlight} />
       </Field>
 
       <Field label="선택 영역 글자 색" hint="패널 색상보다 우선">
@@ -111,15 +131,16 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
               className="swatch"
               style={{ background: color }}
               title={color}
-              onClick={guard((root) => applyTextColor(root, color))}
+              onClick={() => textColor(color)}
             />
           ))}
           <input
             type="color"
             className="swatch-picker"
-            onChange={(e) => editorRoot && applyTextColor(editorRoot, e.target.value)}
+            onChange={(e) => textColor(e.target.value)}
           />
         </div>
+        <RecentSwatches onPick={textColor} />
       </Field>
 
       <hr className="divider" />
@@ -253,7 +274,10 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
             type="color"
             className="rule-color"
             value={rule.color}
-            onChange={(e) => setRule({ ...rule, color: e.target.value })}
+            onChange={(e) => {
+              setRule({ ...rule, color: e.target.value });
+              rememberColor(e.target.value);
+            }}
           />
           <select
             value={rule.style}
@@ -272,6 +296,7 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
             넣기
           </button>
         </div>
+        <RecentSwatches onPick={(color) => setRule({ ...rule, color })} />
       </Field>
       <NumberSlider label="구분선 두께" value={rule.width} min={1} max={12}
         onChange={(width) => setRule({ ...rule, width })} />
