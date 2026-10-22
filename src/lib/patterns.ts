@@ -37,9 +37,12 @@ export interface StarField {
 }
 
 type Shape = 'fill' | 'outline' | 'double' | 'nested';
+/** 무늬 한 개의 꼴 — 별, 또는 물방울(동그라미). 배치·하프톤·번짐은 똑같이 쓴다 */
+export type Form = 'star' | 'circle';
 type Render = 'solid' | 'halftone' | 'soft';
 
 interface Star {
+  form: Form;
   x: number;
   y: number;
   r: number;
@@ -88,7 +91,10 @@ function starPoints(cx: number, cy: number, r: number, inner: number, rot: numbe
 
 const f1 = (n: number) => Math.round(n * 10) / 10;
 
-function starD(cx: number, cy: number, r: number, inner: number, rot: number): string {
+function shapeD(form: Form, cx: number, cy: number, r: number, inner: number, rot: number): string {
+  if (form === 'circle') {
+    return `M${f1(cx - r)} ${f1(cy)}a${f1(r)} ${f1(r)} 0 1 0 ${f1(r * 2)} 0a${f1(r)} ${f1(r)} 0 1 0 ${f1(-r * 2)} 0Z`;
+  }
   const pts = starPoints(cx, cy, r, inner, rot);
   return `M${pts.map(([x, y]) => `${f1(x)} ${f1(y)}`).join('L')}Z`;
 }
@@ -118,7 +124,7 @@ function wrapOffsets(x: number, y: number, reach: number): Array<[number, number
   return out;
 }
 
-function placeStars(rand: () => number): Star[] {
+function placeStars(rand: () => number, form: Form): Star[] {
   const stars: Star[] = [];
   // 큰 별부터 자리를 잡고, 작은 별이 틈을 메운다
   const sizes: number[] = [];
@@ -144,6 +150,7 @@ function placeStars(rand: () => number): Star[] {
         : pick<Shape>(rand, [['fill', 3], ['outline', 3], ['double', 2], ['nested', 2]]);
       const render = pick<Render>(rand, [['solid', 1], ['halftone', 4], ['soft', 4]]);
       stars.push({
+        form,
         x,
         y,
         r,
@@ -201,7 +208,8 @@ function accumulate(star: Star, grid: Float32Array): void {
   ctx.lineJoin = 'round';
   for (const part of parts(star)) {
     ctx.beginPath();
-    starPoints(c, c, part.r, star.inner, star.rot).forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    if (star.form === 'circle') ctx.arc(c, c, part.r, 0, Math.PI * 2);
+    else starPoints(c, c, part.r, star.inner, star.rot).forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
     ctx.closePath();
     if (part.stroke) {
       ctx.lineWidth = part.stroke;
@@ -240,13 +248,17 @@ function accumulate(star: Star, grid: Float32Array): void {
   }
 }
 
-let cached: StarField | null = null;
+const cached = new Map<Form, StarField>();
 
-/** 별 무늬 한 칸. 처음 한 번만 계산한다 (수십 ms) */
-export function starField(): StarField {
-  if (cached) return cached;
-  const rand = mulberry32(20261022);
-  const stars = placeStars(rand);
+/** 꼴마다 시드를 달리한다 — 별과 물방울의 배치가 똑같으면 바꿔 끼운 티가 난다 */
+const SEED: Record<Form, number> = { star: 20261022, circle: 20261105 };
+
+/** 별 · 물방울 무늬 한 칸. 꼴마다 처음 한 번만 계산한다 (수백 ms) */
+export function shapeField(form: Form): StarField {
+  const hit = cached.get(form);
+  if (hit) return hit;
+  const rand = mulberry32(SEED[form]);
+  const stars = placeStars(rand, form);
 
   const solids: StarSolid[] = [];
   const grid = new Float32Array(COLS * ROWS);
@@ -254,7 +266,7 @@ export function starField(): StarField {
     if (star.render === 'solid') {
       for (const [dx, dy] of wrapOffsets(star.x, star.y, star.r + star.line)) {
         for (const part of parts(star)) {
-          solids.push({ d: starD(star.x + dx, star.y + dy, part.r, star.inner, star.rot), stroke: part.stroke });
+          solids.push({ d: shapeD(star.form, star.x + dx, star.y + dy, part.r, star.inner, star.rot), stroke: part.stroke });
         }
       }
     } else {
@@ -284,9 +296,10 @@ export function starField(): StarField {
     }
   }
 
-  cached = { solids, dots: dots.join('') };
-  return cached;
+  const field = { solids, dots: dots.join('') };
+  cached.set(form, field);
+  return field;
 }
 
 /** 무늬마다 100% 일 때 한 칸의 크기 (화면 px) */
-export const PATTERN_BASE = { dots: 22, check: 48, stars: 760 } as const;
+export const PATTERN_BASE = { dots: 22, check: 48, stars: 760, bubbles: 760 } as const;

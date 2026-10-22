@@ -1180,7 +1180,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .button-group.bg-kinds { display: grid; grid-template-columns: repeat(3, 1fr); }
 
 /* 무늬 견본 — 작은 사각형 안에 실제 무늬를 그려 보인다 */
-.pattern-swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.pattern-swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .pattern-swatch {
   display: flex;
   flex-direction: column;

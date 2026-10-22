@@ -21,6 +21,7 @@ const PATTERNS: Array<{ label: string; value: PatternKind; previewScale: number 
   { label: '점', value: 'dots', previewScale: 70 },
   { label: '체크', value: 'check', previewScale: 40 },
   { label: '별', value: 'stars', previewScale: 22 },
+  { label: '물방울', value: 'bubbles', previewScale: 22 },
 ];
 
 export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {

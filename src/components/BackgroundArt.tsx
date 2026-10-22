@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { ASCII_FONT, ASCII_LINE_HEIGHT, imageToAscii, loadImage } from '../lib/ascii';
-import { PATTERN_BASE, STAR_TILE, starField } from '../lib/patterns';
+import { PATTERN_BASE, STAR_TILE, shapeField } from '../lib/patterns';
 import type { PatternKind } from '../types';
 
 interface PatternProps {
@@ -34,7 +34,8 @@ function Tile({ kind }: { kind: PatternKind }) {
       </>
     );
   }
-  const field = starField();
+  // 별과 물방울은 같은 계산기로 꼴만 바꿔 만든다
+  const field = shapeField(kind === 'bubbles' ? 'circle' : 'star');
   return (
     <>
       <path d={field.dots} />
@@ -54,9 +55,10 @@ function Tile({ kind }: { kind: PatternKind }) {
  */
 export function PatternFill({ kind, scale, color, angle, opacity }: PatternProps) {
   const id = `te-pat-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
-  const base = kind === 'stars' ? STAR_TILE : PATTERN_BASE[kind];
-  // 별은 계산한 칸(STAR_TILE)을 화면 크기(PATTERN_BASE.stars)로 줄여 쓴다
-  const k = ((kind === 'stars' ? PATTERN_BASE.stars / STAR_TILE : 1) * scale) / 100;
+  const computed = kind === 'stars' || kind === 'bubbles';
+  const base = computed ? STAR_TILE : PATTERN_BASE[kind];
+  // 별·물방울은 계산한 칸(STAR_TILE)을 화면 크기(PATTERN_BASE)로 줄여 쓴다
+  const k = ((computed ? PATTERN_BASE[kind] / STAR_TILE : 1) * scale) / 100;
   return (
     <svg className="bg-pattern" width="100%" height="100%" aria-hidden="true" style={{ color }}>
       <defs>
