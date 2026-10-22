@@ -4,6 +4,7 @@ import { useStore } from '../../store';
 import { ColorField, Field, FileButton, Hint, NumberSlider, Select, TextInput, Toggle } from '../ui';
 import type { BackgroundType, PatternKind } from '../../types';
 import { PatternFill } from '../BackgroundArt';
+import { measureAspect } from '../../lib/ascii';
 import { ImageSection } from './ImageSection';
 import { SlotSection } from './SlotSection';
 
@@ -27,6 +28,11 @@ const PATTERNS: Array<{ label: string; value: PatternKind; previewScale: number 
 export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
   const { settings, patch, adjustingImage, setAdjustingImage } = useStore();
   const bg = settings.background;
+  // 아스키 아트 폭 = 가로 글자 수 × 글자 폭(글자 크기 × 글꼴의 폭 비율)
+  const asciiCharWidth = bg.asciiColumns * measureAspect();
+  const asciiWidthPercent = Math.round((asciiCharWidth * bg.asciiFontSize * 100) / settings.layout.width);
+  const fontForPercent = (percent: number) =>
+    Math.round(Math.min(40, Math.max(2, (percent / 100) * settings.layout.width / asciiCharWidth)) * 10) / 10;
   const [urlNote, setUrlNote] = useState('');
 
   /** 외부 주소 이미지는 미리 받아 둬야 저장할 때 함께 담긴다. */
@@ -225,6 +231,13 @@ export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null
           <NumberSlider label="해상도" value={bg.asciiColumns} min={20} max={240} unit="자"
             hint="가로 글자 수 — 클수록 촘촘하고 자세함"
             onChange={(asciiColumns) => patch('background', { asciiColumns })} />
+          {/*
+            크기와 글자 크기는 같은 것을 두 단위로 보여 준다 — 가로 글자 수(해상도)가 정해져 있으면
+            아트의 폭은 글자 크기로만 정해지기 때문이다. 크기(%)는 내지 너비 대비.
+          */}
+          <NumberSlider label="크기" value={asciiWidthPercent} min={10} max={300} unit="%"
+            hint="내지 너비 대비 · 글자 크기와 함께 움직임"
+            onChange={(percent) => patch('background', { asciiFontSize: fontForPercent(percent) })} />
           <NumberSlider label="글자 크기" value={bg.asciiFontSize} min={2} max={40} step={0.5}
             onChange={(asciiFontSize) => patch('background', { asciiFontSize })} />
           <NumberSlider label="대비" value={bg.asciiContrast} min={0.2} max={3} step={0.05} unit="배"
@@ -262,6 +275,12 @@ export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null
               조절하는 동안에는 본문을 편집할 수 없습니다.
             </Hint>
           ) : null}
+          <NumberSlider label="가로 위치" value={Math.round(bg.asciiX)} min={0} max={100} unit="%"
+            hint="0 은 왼쪽 끝, 100 은 오른쪽 끝에 맞춤"
+            onChange={(asciiX) => patch('background', { asciiX })} />
+          <NumberSlider label="세로 위치" value={Math.round(bg.asciiY)} min={0} max={100} unit="%"
+            hint="0 은 위 끝, 100 은 아래 끝에 맞춤"
+            onChange={(asciiY) => patch('background', { asciiY })} />
         </>
       ) : null}
 

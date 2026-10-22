@@ -15,7 +15,7 @@ export const ASCII_LINE_HEIGHT = 1;
 let charAspect: number | null = null;
 
 /** 이 브라우저의 고정폭 글꼴에서 글자 폭 ÷ 줄 높이 */
-function measureAspect(): number {
+export function measureAspect(): number {
   if (charAspect !== null) return charAspect;
   const ctx = document.createElement('canvas').getContext('2d');
   if (!ctx) return 0.6;

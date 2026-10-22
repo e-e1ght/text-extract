@@ -425,12 +425,11 @@ body {
 .bg-layer { position: absolute; z-index: 0; }
 /* 무늬는 판을 꽉 채운다 */
 .bg-pattern { position: absolute; inset: 0; display: block; }
-/* 아스키 아트 — (left, top) 이 글 상자 가운데가 되게 당겨 놓는다 */
+/* 아스키 아트 — 자리는 BackgroundArt 가 배경 이미지와 같은 규칙으로 잡는다 */
 .bg-ascii {
   position: absolute;
   margin: 0;
   padding: 0;
-  transform: translate(-50%, -50%);
   white-space: pre;
   letter-spacing: 0;
   text-indent: 0;

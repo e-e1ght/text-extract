@@ -90,7 +90,7 @@ interface AsciiProps {
   y: number;
 }
 
-/** 이미지를 글자로 바꿔 깐 판. (x, y) 는 글 상자 가운데의 위치(%) */
+/** 이미지를 글자로 바꿔 깐 판. (x, y) 는 배경 이미지와 같은 규칙의 위치(%) */
 export function AsciiArt({ url, color, columns, fontSize, contrast, invert, x, y }: AsciiProps) {
   const [img, setImg] = useState<HTMLImageElement | null>(null);
 
@@ -113,8 +113,14 @@ export function AsciiArt({ url, color, columns, fontSize, contrast, invert, x, y
       className="bg-ascii"
       aria-hidden="true"
       style={{
+        /*
+         * 위치 규칙은 배경 이미지(background-position)와 같다: 0% 면 글 상자의 왼쪽(위) 끝이
+         * 판의 왼쪽(위) 끝에, 100% 면 오른쪽(아래) 끝끼리 맞는다. 판보다 큰 아트도 끝까지 옮길 수 있다.
+         * (예전에는 가운데 자리를 0~100% 로 묶어, 판보다 큰 아트는 맨 위까지 못 올렸다.)
+         */
         left: `${x}%`,
         top: `${y}%`,
+        transform: `translate(${-x}%, ${-y}%)`,
         color,
         fontSize: `${fontSize}px`,
         lineHeight: ASCII_LINE_HEIGHT,
