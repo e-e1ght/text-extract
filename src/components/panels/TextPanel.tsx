@@ -7,13 +7,17 @@ import { deleteFontFile, fontFamilyOf, installFont, saveFontFile } from '../../l
 import { useStore } from '../../store';
 import { rememberColor } from '../../lib/recentColors';
 import { ButtonGroup, Field, FileButton, Hint, NumberSlider, RecentSwatches, Select } from '../ui';
+import { BorderStylePicker } from '../PageBorder';
+import type { BorderStyle } from '../../types';
 
 export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
   const { settings, patch, set } = useStore();
   const t = settings.typography;
   const [breaks, setBreaks] = useState(0);
   const [fontError, setFontError] = useState('');
-  const [rule, setRule] = useState({ color: '#d8d8de', width: 1, style: 'solid' });
+  const [rule, setRule] = useState<{ color: string; width: number; style: BorderStyle }>({
+    color: '#d8d8de', width: 1, style: 'solid',
+  });
 
   useEffect(() => { setBreaks(pageBreakCount(editorRoot)); }, [editorRoot]);
 
@@ -40,7 +44,7 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
     <>
       {/* 글자 일부의 서식은 드래그 팝업이 맡는다 — 여기는 본문 전체에 걸리는 서식만 */}
       <Hint>
-        글자 일부의 굵기·색·하이라이트·세로선은 본문을 <strong>드래그하면 뜨는 팝업</strong>에서 바꿉니다.
+        글자 일부의 굵기·색·하이라이트·세로선은 본문을 드래그한 뒤 <strong>편집 패널</strong>(화면의 편집 단추)에서 바꿉니다.
         여기서는 본문 전체에 걸리는 서식을 정합니다.
       </Hint>
 
@@ -178,25 +182,19 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
               rememberColor(e.target.value);
             }}
           />
-          <select
-            value={rule.style}
-            onChange={(e) => setRule({ ...rule, style: e.target.value })}
-          >
-            <option value="solid">실선</option>
-            <option value="dashed">파선</option>
-            <option value="dotted">점선</option>
-            <option value="double">두 줄</option>
-          </select>
           <button
             type="button"
             className="mini-button"
             onClick={() => editorRoot && insertDivider(editorRoot, rule)}
           >
-            넣기
+            커서 아래에 넣기
           </button>
         </div>
         <RecentSwatches onPick={(color) => setRule({ ...rule, color })} />
       </Field>
+      {/* 페이지 테두리 · 이미지 슬롯 테두리와 같은 여섯 가지 모양 */}
+      <BorderStylePicker label="구분선 모양" value={rule.style}
+        onChange={(style) => setRule({ ...rule, style })} />
       <NumberSlider label="구분선 두께" value={rule.width} min={1} max={12}
         onChange={(width) => setRule({ ...rule, width })} />
 

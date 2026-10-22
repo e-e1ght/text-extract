@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BAR_SWATCHES, FONT_OPTIONS, HIGHLIGHT_SWATCHES } from '../defaults';
 import {
   alignImage, applyBar, applyBubble, applyFontFamily, applyFontSize, applyHighlight,
@@ -10,10 +10,10 @@ import {
 import { fontFamilyOf } from '../lib/fonts';
 import { rememberColor } from '../lib/recentColors';
 import { RecentSwatches } from './ui';
+import { IconClose, IconEdit } from './icons';
 import type { Role } from '../lib/parse';
 import { useStore } from '../store';
 
-interface Position { top: number; left: number; below: boolean; }
 
 const INLINE_BUTTONS: Array<{ command: InlineCommand; label: string; title: string }> = [
   { command: 'bold', label: 'B', title: '볼드' },
@@ -39,11 +39,70 @@ type Panel =
 /** 색을 '이 선택 영역만' 바꿀지, '같은 역할 전체'에 적용할지 */
 type ColorScope = 'role' | 'selection';
 
-export function SelectionPopup({
-  editorRoot, boundary, zoom,
-}: { editorRoot: HTMLElement | null; boundary: HTMLElement | null; zoom: number }) {
+/** 화면 안에 붙잡아 둔다 — 창을 줄였을 때 패널·단추가 화면 밖으로 사라지지 않게 */
+function clampToViewport(x: number, y: number, w: number, h: number): { x: number; y: number } {
+  return {
+    x: Math.min(Math.max(0, x), Math.max(0, window.innerWidth - Math.min(w, 120))),
+    y: Math.min(Math.max(0, y), Math.max(0, window.innerHeight - Math.min(h, 40))),
+  };
+}
+
+/** 이 브라우저에만 남기는 자리·크기 (사람마다 화면이 달라 서식과 따로 둔다) */
+function usePersisted<T>(key: string, fallback: () => T): [T, (value: T) => void] {
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) return { ...fallback(), ...JSON.parse(raw) } as T;
+    } catch { /* 못 읽으면 기본값 */ }
+    return fallback();
+  });
+  const save = useCallback((next: T) => {
+    setValue(next);
+    try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* 저장 못 해도 동작은 한다 */ }
+  }, [key]);
+  return [value, save];
+}
+
+/** 누른 채 끌면 따라 움직인다. 거의 안 움직였으면 '클릭' 으로 본다 */
+function dragFrom(
+  event: React.PointerEvent, start: { x: number; y: number }, size: { w: number; h: number },
+  onMove: (pos: { x: number; y: number }) => void, onClick?: () => void,
+) {
+  const sx = event.clientX;
+  const sy = event.clientY;
+  let moved = false;
+  const move = (e: PointerEvent) => {
+    if (!moved && Math.hypot(e.clientX - sx, e.clientY - sy) < 4) return;
+    moved = true;
+    onMove(clampToViewport(start.x + e.clientX - sx, start.y + e.clientY - sy, size.w, size.h));
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    if (!moved) onClick?.();
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+}
+
+/**
+ * 편집 패널.
+ *
+ * 예전에는 글을 드래그하면 그 위에 바로 떴다. 이제는 '편집' 단추로 열고 닫는 패널이다.
+ * 단추와 패널 모두 끌어서 옮길 수 있고, 패널은 오른쪽 아래 모서리를 끌어 크기를 바꾼다.
+ * 열려 있는 동안은 계속 떠 있고, 본문에서 고른 글이 없으면 단추들이 잠긴다.
+ */
+export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null }) {
   const { settings, patch, upsertCharacter } = useStore();
-  const [position, setPosition] = useState<Position | null>(null);
+  /** 본문에서 고른 글이 있는지 (없으면 단추를 잠근다) */
+  const [hasTarget, setHasTarget] = useState(false);
+  const [open, setOpen] = usePersisted('te-edit-panel-open', () => ({ value: false }));
+  const [launcher, setLauncher] = usePersisted('te-edit-launcher', () => ({
+    x: window.innerWidth - 120, y: window.innerHeight - 150,
+  }));
+  const [box, setBox] = usePersisted('te-edit-panel', () => ({
+    x: Math.max(16, window.innerWidth - 680), y: 110, w: 620, h: 300,
+  }));
   const [active, setActive] = useState<Record<string, boolean>>({});
   const [panel, setPanel] = useState<Panel>('none');
   const [role, setRole] = useState<Role>('narration');
@@ -63,58 +122,18 @@ export function SelectionPopup({
   /** 고른 곳이 이미 가려져 있으면 그 방식 — '가리기 풀기' 를 보여 줄지 정한다 */
   const [redaction, setRedaction] = useState<RedactKind | null>(null);
 
-  /*
-   * 위치는 화면(뷰포트) 좌표를 그대로 쓰고, CSS 는 position: fixed 다.
-   * 예전에는 스테이지 기준으로 계산했는데, 팝업이 실제로 매달린 상자는 스크롤되는
-   * 쪽이라 스크롤한 만큼 어긋나 한참 아래(가운데쯤)에 떨어져 있었다.
-   * 화면 좌표면 매달린 상자가 무엇이든 상관없다 — 스크롤할 때마다 다시 잡아 준다.
-   */
+  /** 본문 선택이 바뀔 때마다 '무엇을 골랐는지' 를 다시 읽는다 */
   const update = useCallback(() => {
-    if (!editorRoot || !boundary) return;
+    if (!editorRoot) return;
     if (!hasSelectionInside(editorRoot)) {
-      // 팝업 자체를 조작하는 중이라면 닫지 않는다.
+      // 패널의 입력칸·드롭다운을 만지는 중이면 본문 선택이 잠시 풀린다 — 그때는 그대로 둔다
       if (popupRef.current?.contains(document.activeElement)) return;
-      setPosition(null);
-      setPanel('none');
+      setHasTarget(false);
       return;
     }
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0) lastRange.current = sel.getRangeAt(0).cloneRange();
-    const rect = sel?.getRangeAt(0).getBoundingClientRect();
-    if (!rect || (rect.width === 0 && rect.height === 0)) {
-      setPosition(null);
-      return;
-    }
-    const host = boundary.getBoundingClientRect();
-    void zoom; // 화면 좌표라 배율을 따로 곱하지 않는다
-
-    // 드래그한 글이 작업 영역 밖으로 스크롤돼 나가면 팝업도 함께 감춘다.
-    if (rect.bottom < host.top || rect.top > host.bottom) {
-      if (!popupRef.current?.contains(document.activeElement)) setPosition(null);
-      return;
-    }
-
-    /*
-     * 원칙은 '드래그한 글 바로 위'. 위로 올렸을 때 작업 영역 윗변에 걸려 잘릴
-     * 때에만 아래로 내린다. 팝업 높이는 열린 하위 패널에 따라 달라지므로
-     * 어림수가 아니라 실제 높이를 잰다(첫 표시 때는 한 줄 높이로 어림).
-     */
-    const popupHeight = popupRef.current?.offsetHeight ?? 44;
-    const below = rect.top - popupHeight - 10 < host.top;
-
-    // 좌우로도 화면을 넘지 않게 가둔다 (팝업은 가운데 정렬이라 절반씩 여유가 필요하다)
-    const half = (popupRef.current?.offsetWidth ?? 0) / 2;
-    const center = rect.left + rect.width / 2;
-    const left = Math.min(
-      Math.max(center, host.left + half + 8),
-      host.right - half - 8,
-    );
-
-    setPosition({
-      top: below ? rect.bottom + 10 : rect.top - 10,
-      left,
-      below,
-    });
+    setHasTarget(true);
     setActive(Object.fromEntries(INLINE_BUTTONS.map((b) => [b.command, queryInline(b.command)])));
     setRole(selectionRole(editorRoot));
     setPicked(selectionText());
@@ -123,10 +142,7 @@ export function SelectionPopup({
     setInBlock(block ? (block.classList.contains('te-script') ? 'script' : 'bubble') : null);
     if (block?.dataset.teSpeaker) setBubbleSpeaker(block.dataset.teSpeaker);
     setRedaction(redactionAtSelection(editorRoot));
-  }, [editorRoot, boundary, zoom]);
-
-  // 하위 패널을 여닫으면 팝업 높이가 달라진다 — 그리자마자 자리를 다시 잡는다.
-  useLayoutEffect(() => { update(); }, [panel, update]);
+  }, [editorRoot]);
 
   /*
    * 서식을 줘도 선택은 그대로 남으므로 팝업도 떠 있다 — 한 번 드래그로 볼드·형광 등을
@@ -136,8 +152,6 @@ export function SelectionPopup({
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || !hasSelectionInside(editorRoot)) return;
       window.getSelection()?.collapseToEnd();
-      setPosition(null);
-      setPanel('none');
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -145,16 +159,39 @@ export function SelectionPopup({
 
   useEffect(() => {
     document.addEventListener('selectionchange', update);
-    window.addEventListener('scroll', update, true);
-    window.addEventListener('resize', update);
-    return () => {
-      document.removeEventListener('selectionchange', update);
-      window.removeEventListener('scroll', update, true);
-      window.removeEventListener('resize', update);
-    };
+    return () => document.removeEventListener('selectionchange', update);
   }, [update]);
 
-  if (!position || !editorRoot) return null;
+  const boxRef = useRef(box);
+  boxRef.current = box;
+
+  /*
+   * 오른쪽 아래 손잡이를 끌어 크기를 바꾼다.
+   * CSS resize 를 쓰지 않는 까닭: 패널은 누를 때 본문 선택이 풀리지 않게 mousedown 을
+   * 막는데, 그러면 브라우저의 크기 조절 손잡이도 함께 죽는다.
+   */
+  const startResize = (event: React.PointerEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const sx = event.clientX;
+    const sy = event.clientY;
+    const start = boxRef.current;
+    const move = (e: PointerEvent) => {
+      setBox({
+        ...boxRef.current,
+        w: Math.round(Math.min(window.innerWidth - start.x - 8, Math.max(280, start.w + e.clientX - sx))),
+        h: Math.round(Math.min(window.innerHeight - start.y - 8, Math.max(120, start.h + e.clientY - sy))),
+      });
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  if (!editorRoot) return null;
 
   /** 팝업 입력칸을 거친 뒤에도 본문 선택을 되살려 명령이 먹히게 한다. */
   const withSelection = (action: () => void) => {
@@ -220,11 +257,37 @@ export function SelectionPopup({
     setPanel('none');
   };
 
+  const launcherPos = clampToViewport(launcher.x, launcher.y, 90, 40);
+  const panelPos = clampToViewport(box.x, box.y, box.w, box.h);
+
+  const launcherButton = (
+    <button
+      type="button"
+      className={`edit-launcher${open.value ? ' is-open' : ''}`}
+      style={{ left: launcherPos.x, top: launcherPos.y }}
+      title={open.value ? '편집 패널 닫기 (끌어서 옮길 수 있음)' : '편집 패널 열기 (끌어서 옮길 수 있음)'}
+      data-export-ignore="true"
+      // 단추를 눌러도 본문 선택이 풀리지 않게
+      onMouseDown={(event) => event.preventDefault()}
+      onPointerDown={(event) => dragFrom(
+        event, launcherPos, { w: 90, h: 40 },
+        (pos) => setLauncher(pos),
+        () => setOpen({ value: !open.value }),
+      )}
+    >
+      <IconEdit />
+      <span>편집</span>
+    </button>
+  );
+  if (!open.value) return launcherButton;
+
   return (
+    <>
+    {launcherButton}
     <div
       ref={popupRef}
-      className={`selection-popup${position.below ? ' is-below' : ''}`}
-      style={{ top: position.top, left: position.left }}
+      className={`edit-panel${hasTarget ? '' : ' is-idle'}`}
+      style={{ left: panelPos.x, top: panelPos.y, width: box.w, height: box.h }}
       /*
        * 버튼을 누를 때 선택이 풀리지 않도록 mousedown 을 막는다.
        * 다만 드롭다운·입력칸까지 막으면 아예 열리지 않으므로 그것들은 그대로 둔다.
@@ -236,6 +299,25 @@ export function SelectionPopup({
       }}
       data-export-ignore="true"
     >
+      <div
+        className="edit-panel-head"
+        onPointerDown={(event) => {
+          if ((event.target as HTMLElement).closest('button')) return;
+          dragFrom(event, panelPos, { w: box.w, h: box.h }, (pos) => setBox({ ...boxRef.current, ...pos }));
+        }}
+      >
+        <span className="edit-panel-title">편집</span>
+        <span className="edit-panel-target">
+          {hasTarget
+            ? (pickedImage ? '고른 이미지' : `고른 글: ${picked.length > 18 ? `${picked.slice(0, 18)}…` : picked}`)
+            : '본문에서 글을 드래그해 고르세요'}
+        </span>
+        <button type="button" className="edit-panel-close" title="닫기" onClick={() => setOpen({ value: false })}>
+          <IconClose />
+        </button>
+      </div>
+      {/* 고른 글이 없으면 통째로 잠근다 — 무엇에 적용될지 모르는 채 누르지 않게 */}
+      <fieldset className="edit-panel-body" disabled={!hasTarget}>
       <div className="popup-main">
         {INLINE_BUTTONS.map((button) => (
           <button
@@ -623,6 +705,9 @@ export function SelectionPopup({
           </div>
         </div>
       ) : null}
+      </fieldset>
+      <div className="edit-panel-resize" title="끌어서 크기 조절" onPointerDown={startResize} />
     </div>
+    </>
   );
 }

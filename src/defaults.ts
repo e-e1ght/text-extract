@@ -16,6 +16,7 @@ function slot(size: number): ImageSlot {
     marginLeft: 0,
     borderWidth: 0,
     borderColor: '#d8d8de',
+    borderStyle: 'solid',
     radius: 0,
     shadow: false,
     shadowBlur: 16,

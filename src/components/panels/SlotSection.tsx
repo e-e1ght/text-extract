@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { BorderStylePicker } from '../PageBorder';
 import { readFileAsDataUrl } from '../../lib/exporters';
 import { useStore } from '../../store';
 import { ButtonGroup, ColorField, Field, FileButton, Hint, NumberSlider, Toggle } from '../ui';
@@ -145,8 +146,12 @@ export function SlotSection() {
               <NumberSlider label="테두리 두께" value={slot.borderWidth} min={0} max={20}
                 onChange={(borderWidth) => change({ borderWidth })} />
               {slot.borderWidth > 0 ? (
-                <ColorField label="테두리 색" value={slot.borderColor}
-                  onChange={(borderColor) => change({ borderColor })} />
+                <>
+                  <ColorField label="테두리 색" value={slot.borderColor}
+                    onChange={(borderColor) => change({ borderColor })} />
+                  <BorderStylePicker value={slot.borderStyle ?? 'solid'}
+                    onChange={(borderStyle) => change({ borderStyle })} />
+                </>
               ) : null}
               <NumberSlider label="모서리 둥글기" value={slot.radius} min={0} max={200}
                 onChange={(radius) => change({ radius })} />

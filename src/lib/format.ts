@@ -511,7 +511,10 @@ export function insertDivider(
   rule.contentEditable = 'false';
   rule.style.setProperty('--r-color', look.color);
   rule.style.setProperty('--r-width', `${look.width}px`);
-  rule.style.setProperty('--r-style', look.style);
+  // 테두리와 같은 여섯 모양 — 실선·겹선이 아닌 것은 CSS 가 data-style 을 보고 무늬로 그린다.
+  // --r-style 은 예전 구분선과 같은 방식으로도 읽히게 남긴다 (CSS border-style 로 쓸 수 있는 값만).
+  rule.style.setProperty('--r-style', look.style === 'longdash' || look.style === 'dashdot' ? 'dashed' : look.style);
+  rule.dataset.style = look.style;
 
   const sel = window.getSelection();
   let line: Node | null = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).startContainer : null;

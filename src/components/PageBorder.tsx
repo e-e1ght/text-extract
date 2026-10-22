@@ -87,3 +87,28 @@ export function BorderSample({ style }: { style: BorderStyle }) {
     </svg>
   );
 }
+
+/** 선 모양 고르기 — 페이지 테두리 · 본문 구분선 · 이미지 슬롯 테두리가 함께 쓴다 */
+export function BorderStylePicker({ value, onChange, label = '선 모양' }: {
+  value: BorderStyle; onChange: (style: BorderStyle) => void; label?: string;
+}) {
+  return (
+    <div className="field">
+      <div className="field-label"><span>{label}</span></div>
+      <div className="button-group border-styles">
+        {BORDER_STYLES.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            title={option.label}
+            className={value === option.value ? 'is-active' : ''}
+            onClick={() => onChange(option.value)}
+          >
+            <BorderSample style={option.value} />
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

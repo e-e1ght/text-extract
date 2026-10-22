@@ -17,6 +17,7 @@ import {
   faImage,
   faMoon,
   faPalette,
+  faPenToSquare,
   faRotateLeft,
   faRotateRight,
   faSun,
@@ -54,3 +55,4 @@ export const IconUndo = ({ size }: IconProps) => <Glyph icon={faRotateLeft} size
 export const IconRedo = ({ size }: IconProps) => <Glyph icon={faRotateRight} size={size} />;
 export const IconSun = ({ size }: IconProps) => <Glyph icon={faSun} size={size} />;
 export const IconMoon = ({ size }: IconProps) => <Glyph icon={faMoon} size={size} />;
+export const IconEdit = ({ size }: IconProps) => <Glyph icon={faPenToSquare} size={size} />;

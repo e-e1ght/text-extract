@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import { ButtonGroup, ColorField, Field, Hint, NumberSlider, Select, Toggle } from '../ui';
 import { SPLIT_RATIOS } from '../../lib/split';
 import { usePagePlan } from '../PageGuides';
-import { BORDER_STYLES, BorderSample } from '../PageBorder';
+import { BorderStylePicker } from '../PageBorder';
 import type { AlignY, SplitRatio } from '../../types';
 
 export function LayoutPanel({ captureNode }: { captureNode: HTMLElement | null }) {
@@ -155,22 +155,7 @@ export function LayoutPanel({ captureNode }: { captureNode: HTMLElement | null }
       />
       {border.enabled ? (
         <>
-          <Field label="선 모양">
-            <div className="button-group border-styles">
-              {BORDER_STYLES.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  title={option.label}
-                  className={border.style === option.value ? 'is-active' : ''}
-                  onClick={() => setBorder({ style: option.value })}
-                >
-                  <BorderSample style={option.value} />
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </Field>
+          <BorderStylePicker value={border.style} onChange={(style) => setBorder({ style })} />
           <ColorField label="색" value={border.color} onChange={(color) => setBorder({ color })} />
           <NumberSlider label="불투명도" value={Math.round(border.opacity * 100)} min={0} max={100} unit="%"
             onChange={(value) => setBorder({ opacity: value / 100 })} />

@@ -14,7 +14,7 @@ export function BubblePanel({ detectedNames }: { detectedNames: string[] }) {
 
       <div className="panel-head"><span>말풍선</span></div>
       <Hint>
-        본문에서 대사를 드래그하고 팝업의 <strong>말풍선</strong> 버튼을 누르면
+        본문에서 대사를 드래그하고 편집 패널의 <strong>말풍선</strong> 버튼을 누르면
         말풍선이 됩니다. 인물을 고르면 그 캐릭터의 색·프로필·이름이 함께 붙습니다.
         <br />
         같은 자리의 <strong>대본</strong> 버튼은 <code>이름　대사</code> 처럼 두 칸으로

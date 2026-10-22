@@ -247,7 +247,7 @@ function SlotBox({
     minHeight: vertical && slot.length === 0 ? `${slot.size}px` : undefined,
     // 높이를 정하지 않은 왼쪽·오른쪽 칸은 본문 높이를 따라 늘어난다.
     alignSelf: vertical && slot.length > 0 ? 'flex-start' : 'stretch',
-    border: slot.borderWidth > 0 ? `${slot.borderWidth}px solid ${slot.borderColor}` : undefined,
+    // 테두리는 아래의 PageBorder 가 긋는다 — 페이지 테두리와 같은 여섯 가지 모양을 쓰려고
     borderRadius: `${slot.radius}px`,
     boxShadow: slot.shadow
       ? `0 ${Math.round(slot.shadowBlur / 3)}px ${slot.shadowBlur}px rgba(0, 0, 0, ${slot.shadowOpacity})`
@@ -272,6 +272,17 @@ function SlotBox({
           backgroundSize: slot.fit === 'custom' ? `${slot.scale}% auto` : slot.fit,
           backgroundPosition: `${slot.x}% ${slot.y}%`,
         }}
+      />
+      <PageBorder
+        border={{
+          enabled: slot.borderWidth > 0,
+          style: slot.borderStyle ?? 'solid',
+          color: slot.borderColor,
+          opacity: 1,
+          width: slot.borderWidth,
+          inset: 0,
+        }}
+        radius={slot.radius}
       />
       {adjusting ? (
         <div

@@ -286,7 +286,7 @@ export function ExportPanel({
         </button>
       </div>
       {resetStatus ? <p className="status-line" role="status">{resetStatus}</p> : null}
-      <Hint>본문에 직접 준 서식만 지우려면, 글자를 드래그한 뒤 팝업의 <strong>지우기</strong>를 누르세요.</Hint>
+      <Hint>본문에 직접 준 서식만 지우려면, 글자를 드래그한 뒤 편집 패널의 <strong>지우기</strong>를 누르세요.</Hint>
     </>
   );
 }

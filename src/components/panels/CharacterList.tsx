@@ -68,7 +68,7 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
 
       {Object.values(settings.characters).length === 0 ? (
         <Hint>
-          본문에서 이름을 드래그해 팝업의 <strong>캐릭터</strong> 버튼으로 추가하거나, 위 칸에 직접 입력하세요.
+          본문에서 이름을 드래그한 뒤 편집 패널의 <strong>캐릭터</strong> 버튼으로 추가하거나, 위 칸에 직접 입력하세요.
           본문에 <code>이름: "대사"</code> 형태로 쓰면 자동으로도 찾아냅니다.
         </Hint>
       ) : null}

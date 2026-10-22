@@ -247,7 +247,7 @@ export function App() {
                 <ul className="start-tips" data-export-ignore="true">
                   <li><code>이름: "대사"</code> 로 쓰면 이름과 대사를 알아서 구분합니다</li>
                   <li><code>*강조*</code> 는 강조 서술이 되고, 별표는 결과물에서 감춰집니다</li>
-                  <li>글자를 드래그하면 색·크기·말풍선을 바꾸는 창이 열립니다</li>
+                  <li>글자를 드래그한 뒤 <strong>편집</strong> 단추로 패널을 열어 색·크기·말풍선을 바꿉니다</li>
                 </ul>
               ) : null}
             </div>
@@ -269,7 +269,7 @@ export function App() {
             </button>
           </div>
 
-          <SelectionPopup editorRoot={editorRoot} boundary={stageNode} zoom={zoom} />
+          <SelectionPopup editorRoot={editorRoot} />
 
           {saveError ? (
             <div className="save-warning" role="alert">{saveError}</div>

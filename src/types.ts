@@ -190,6 +190,8 @@ export interface ImageSlot {
   marginLeft: number;
   borderWidth: number;
   borderColor: string;
+  /** 테두리 선 모양 — 페이지 테두리와 같은 여섯 가지 */
+  borderStyle: BorderStyle;
   radius: number;
   shadow: boolean;
   shadowBlur: number;
