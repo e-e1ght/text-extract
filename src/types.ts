@@ -30,11 +30,9 @@ export interface RoleColors {
   emphasisItalic: boolean;
   /** 대사 기울임 */
   dialogueItalic: boolean;
-  /** 선택 영역 좌측 세로선의 기본 색 */
-  barColor: string;
 }
 
-export type BackgroundType = 'solid' | 'gradient' | 'image' | 'video' | 'pattern' | 'ascii';
+export type BackgroundType = 'solid' | 'gradient' | 'image' | 'pattern' | 'ascii';
 
 export type PatternKind = 'dots' | 'check' | 'stars' | 'bubbles';
 
@@ -52,7 +50,6 @@ export interface Background {
   /** 배경 이미지 위치 (%) — 드래그로 조절한다 */
   imageX: number;
   imageY: number;
-  videoUrl: string;
   /* 패턴 — 바탕은 color, 그 위에 무늬를 깐다 */
   patternKind: PatternKind;
   /** 무늬 크기 배율 (%). 무늬마다 기본 크기가 달라 배율로 맞춘다 */
@@ -236,7 +233,6 @@ export interface Settings {
   sidebarWidth: number;
   /** 지금 열려 있는 도구 패널. null 이면 모두 닫힘 */
   activePanel: string | null;
-  autoParse: boolean;
   /** 붙여넣을 때 빈 줄을 정리해 문단 간격만으로 띄우기 */
   tidyBlankLines: boolean;
   /** 결과물에서 *…* 의 별표를 감춘다 (강조 서식은 그대로) */

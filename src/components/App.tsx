@@ -224,7 +224,8 @@ export function App() {
                     <div className="editor-wrap">
                       <Editor
                         initialContent={liveHtml.current}
-                        autoParse={settings.autoParse}
+                        // 대사 구분을 끄면 입력하는 글도 구분하지 않는다 (스위치는 색상 탭 하나)
+                        autoParse={settings.roles.enabled}
                         tidyBlankLines={settings.tidyBlankLines}
                         onRootChange={(node) => { editorRootRef.current = node; setEditorRoot(node); }}
                         onTextChange={setPlainText}

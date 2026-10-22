@@ -52,6 +52,8 @@ export function mergeSettings(base: Settings, incoming: unknown): Settings {
   }
   // characters 는 사용자가 정의한 자유 키라 병합이 아니라 통째로 교체한다.
   const result = merge(base, incoming) as Settings;
+  // 영상 배경은 없앴다 (저장하면 어차피 한 장면만 남았다). 예전 설정은 단색으로 연다.
+  if ((result.background.type as string) === 'video') result.background.type = 'solid';
   if (isPlainObject(incoming) && isPlainObject((incoming as Plain).characters)) {
     result.characters = (incoming as unknown as Settings).characters;
   }

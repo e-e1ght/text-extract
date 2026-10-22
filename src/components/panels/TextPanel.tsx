@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
-import { FONT_OPTIONS, HIGHLIGHT_SWATCHES } from '../../defaults';
+import { FONT_OPTIONS } from '../../defaults';
 import {
-  applyBar, applyFontFamily, applyFontSize, applyHighlight, applyTextColor, clearHighlight,
-  hasSelectionInside, insertDivider, insertPageBreak, pageBreakCount,
-  removeBar, removeFormatting, toggleInline,
+  applyFontFamily, applyFontSize, hasSelectionInside, insertDivider, insertPageBreak, pageBreakCount,
 } from '../../lib/format';
 import { deleteFontFile, fontFamilyOf, installFont, saveFontFile } from '../../lib/fonts';
 import { useStore } from '../../store';
@@ -27,27 +25,6 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
     })),
   ];
 
-  const guard = (run: (root: HTMLElement) => void) => () => {
-    if (editorRoot) run(editorRoot);
-  };
-
-  // 색을 쓰는 곳은 모두 최근 색으로 남긴다.
-  const setBar = (color: string) => {
-    patch('roles', { barColor: color });
-    rememberColor(color);
-    if (editorRoot) applyBar(editorRoot, color);
-  };
-  const highlight = (color: string) => {
-    if (!editorRoot) return;
-    rememberColor(color);
-    applyHighlight(color);
-  };
-  const textColor = (color: string) => {
-    if (!editorRoot) return;
-    rememberColor(color);
-    applyTextColor(editorRoot, color);
-  };
-
   /**
    * 크기 조절은 선택 여부에 따라 대상이 달라진다.
    *  - 드래그로 고른 영역이 있으면 그 영역만
@@ -61,89 +38,11 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
 
   return (
     <>
-      <Field label="선택 영역 서식" hint="드래그한 뒤 적용">
-        <div className="inline-toolbar" onMouseDown={(e) => e.preventDefault()}>
-          <button type="button" className="cmd-bold" title="볼드" onClick={guard(() => toggleInline('bold'))}>B</button>
-          <button type="button" className="cmd-italic" title="이탤릭" onClick={guard(() => toggleInline('italic'))}>I</button>
-          <button type="button" className="cmd-underline" title="밑줄" onClick={guard(() => toggleInline('underline'))}>U</button>
-          <button type="button" className="cmd-strikeThrough" title="취소선" onClick={guard(() => toggleInline('strikeThrough'))}>S</button>
-          <button type="button" title="서식 지우기" onClick={guard(removeFormatting)}>지우기</button>
-        </div>
-      </Field>
-
-      <Field label="왼쪽 세로선" hint="드래그하지 않으면 커서가 있는 줄">
-        <div className="color-row" onMouseDown={(e) => e.preventDefault()}>
-          <button
-            type="button"
-            className="bar-button"
-            title="왼쪽에 세로선 넣기"
-            onClick={guard((root) => applyBar(root, settings.roles.barColor))}
-          >
-            ▌넣기
-          </button>
-          <button type="button" className="bar-button" title="세로선 빼기"
-            onClick={guard(removeBar)}>
-            빼기
-          </button>
-          <input
-            type="color"
-            value={/^#[0-9a-f]{6}$/i.test(settings.roles.barColor) ? settings.roles.barColor : '#e8bf4e'}
-            onChange={(e) => setBar(e.target.value)}
-          />
-          <input
-            type="text"
-            className="color-text"
-            value={settings.roles.barColor}
-            spellCheck={false}
-            onChange={(e) => {
-              patch('roles', { barColor: e.target.value });
-              rememberColor(e.target.value);
-            }}
-          />
-        </div>
-        <RecentSwatches onPick={setBar} />
-      </Field>
-
-      <Field label="하이라이트">
-        <div className="swatch-row" onMouseDown={(e) => e.preventDefault()}>
-          {HIGHLIGHT_SWATCHES.map((color) => (
-            <button
-              key={color}
-              type="button"
-              className="swatch"
-              style={{ background: color }}
-              title={color}
-              onClick={() => highlight(color)}
-            />
-          ))}
-          <input type="color" className="swatch-picker" onChange={(e) => highlight(e.target.value)} />
-          <button type="button" className="swatch-clear" onClick={guard(clearHighlight)}>없음</button>
-        </div>
-        <RecentSwatches onPick={highlight} />
-      </Field>
-
-      <Field label="선택 영역 글자 색" hint="패널 색상보다 우선">
-        <div className="swatch-row" onMouseDown={(e) => e.preventDefault()}>
-          {['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8', '#8b5a2b', '#8a8a95'].map((color) => (
-            <button
-              key={color}
-              type="button"
-              className="swatch"
-              style={{ background: color }}
-              title={color}
-              onClick={() => textColor(color)}
-            />
-          ))}
-          <input
-            type="color"
-            className="swatch-picker"
-            onChange={(e) => textColor(e.target.value)}
-          />
-        </div>
-        <RecentSwatches onPick={textColor} />
-      </Field>
-
-      <hr className="divider" />
+      {/* 글자 일부의 서식은 드래그 팝업이 맡는다 — 여기는 본문 전체에 걸리는 서식만 */}
+      <Hint>
+        글자 일부의 굵기·색·하이라이트·세로선은 본문을 <strong>드래그하면 뜨는 팝업</strong>에서 바꿉니다.
+        여기서는 본문 전체에 걸리는 서식을 정합니다.
+      </Hint>
 
       <Select
         label="글꼴"
@@ -303,7 +202,7 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
 
       <hr className="divider" />
 
-      <Field label="페이지 나눔" hint={breaks > 0 ? `${breaks}개 · ${breaks + 1}장으로 저장` : '저장할 때 분할'}>
+      <Field label="페이지 나눔" hint={breaks > 0 ? `${breaks}개 · ${breaks + 1}장으로 저장` : '여기서 끊어 다음 장으로'}>
         <div className="button-row">
           <button
             type="button"
@@ -333,7 +232,8 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
       </Field>
       <Hint>
         나눔선은 화면에만 보이고 결과물에는 나오지 않습니다. 저장하면 나눔선을 기준으로
-        여러 장(PDF 는 여러 쪽)으로 나뉩니다.
+        여러 장(PDF 는 여러 쪽)으로 나뉩니다. 정해진 비율로 <strong>자동으로</strong> 나누려면
+        <strong> 내지 옵션 › 이미지 비율 › 여러 장으로 나누기</strong> — 그때도 여기 넣은 나눔선은 지킵니다.
       </Hint>
 
       <Hint>장평은 넓은 폭으로 줄바꿈을 계산한 뒤 가로로 눌러 맞추므로, 값을 바꾸면 줄바꿈 위치도 함께 바뀝니다.</Hint>

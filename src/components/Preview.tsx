@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useStore } from '../store';
 import { AsciiArt, PatternFill } from './BackgroundArt';
-import { loadImage } from '../lib/ascii';
+import { loadImage, measureAspect } from '../lib/ascii';
 import { PageBorder } from './PageBorder';
 import { PageGuides, usePagePlan } from './PageGuides';
 import { ensureWebFont } from '../lib/webfonts';
@@ -143,20 +143,6 @@ function backgroundLayer(settings: Settings): ReactNode {
             backgroundPosition: `${bg.imageX}% ${bg.imageY}%`,
           }}
         />
-      );
-    case 'video':
-      if (!bg.videoUrl) return <div className="bg-layer" style={{ ...base, background: bg.color }} />;
-      return (
-        <div className="bg-layer" style={{ ...base, backgroundColor: bg.color, overflow: 'hidden' }}>
-          <video
-            src={bg.videoUrl}
-            autoPlay
-            loop
-            muted
-            playsInline
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        </div>
       );
     case 'pattern':
       return (
@@ -531,7 +517,7 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
           <span className="bg-drag-badge">
             배경 조절 중 — 드래그로 위치, 휠로 크기
             {adjustingAscii
-              ? ` · 글자 ${background.asciiFontSize}px`
+              ? ` · ${Math.round((background.asciiColumns * measureAspect() * background.asciiFontSize * 100) / layout.width)}%`
               : background.imageFit === 'custom' ? ` · ${Math.round(background.imageScale)}%` : ''}
           </span>
         </div>

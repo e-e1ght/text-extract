@@ -1,7 +1,6 @@
-import { useState } from 'react';
-import { readFileAsDataUrl, urlToDataUrl } from '../../lib/exporters';
+import { readFileAsDataUrl } from '../../lib/exporters';
 import { useStore } from '../../store';
-import { ColorField, Field, FileButton, Hint, NumberSlider, Select, TextInput, Toggle } from '../ui';
+import { ColorField, Field, FileButton, Hint, NumberSlider, Select, Toggle } from '../ui';
 import type { BackgroundType, PatternKind } from '../../types';
 import { PatternFill } from '../BackgroundArt';
 import { measureAspect } from '../../lib/ascii';
@@ -12,7 +11,6 @@ const BG_KINDS: Array<{ label: string; value: BackgroundType }> = [
   { label: '단색', value: 'solid' },
   { label: '그라데이션', value: 'gradient' },
   { label: '이미지 / GIF', value: 'image' },
-  { label: '영상', value: 'video' },
   { label: '패턴', value: 'pattern' },
   { label: '아스키 아트', value: 'ascii' },
 ];
@@ -33,20 +31,6 @@ export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null
   const asciiWidthPercent = Math.round((asciiCharWidth * bg.asciiFontSize * 100) / settings.layout.width);
   const fontForPercent = (percent: number) =>
     Math.round(Math.min(40, Math.max(2, (percent / 100) * settings.layout.width / asciiCharWidth)) * 10) / 10;
-  const [urlNote, setUrlNote] = useState('');
-
-  /** 외부 주소 이미지는 미리 받아 둬야 저장할 때 함께 담긴다. */
-  const fetchIntoDataUrl = async (url: string, key: 'imageUrl' | 'videoUrl') => {
-    if (!url || url.startsWith('data:')) return;
-    setUrlNote('이미지를 받는 중…');
-    try {
-      patch('background', { [key]: await urlToDataUrl(url) });
-      setUrlNote('받았습니다. 이제 저장할 때 함께 담깁니다.');
-    } catch {
-      setUrlNote('이 주소는 다른 사이트에서 가져오는 것을 막고 있어, 저장할 때 빠질 수 있습니다. 파일로 올려 주세요.');
-    }
-  };
-
   return (
     <>
       <ImageSection editorRoot={editorRoot} />
@@ -101,18 +85,6 @@ export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null
               </button>
             ) : null}
           </div>
-          <TextInput label="이미지 주소" value={bg.imageUrl.startsWith('data:') ? '' : bg.imageUrl}
-            placeholder="https://… (업로드 대신 주소 사용)"
-            onChange={(imageUrl) => { setUrlNote(''); patch('background', { imageUrl }); }} />
-          {bg.imageUrl && !bg.imageUrl.startsWith('data:') ? (
-            <div className="button-row">
-              <button type="button" className="mini-button"
-                onClick={() => fetchIntoDataUrl(bg.imageUrl, 'imageUrl')}>
-                저장에 포함되도록 받아 오기
-              </button>
-            </div>
-          ) : null}
-          {urlNote ? <p className="status-line">{urlNote}</p> : null}
           <Select
             label="채우기"
             value={bg.imageFit}
@@ -232,14 +204,12 @@ export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null
             hint="가로 글자 수 — 클수록 촘촘하고 자세함"
             onChange={(asciiColumns) => patch('background', { asciiColumns })} />
           {/*
-            크기와 글자 크기는 같은 것을 두 단위로 보여 준다 — 가로 글자 수(해상도)가 정해져 있으면
-            아트의 폭은 글자 크기로만 정해지기 때문이다. 크기(%)는 내지 너비 대비.
+            가로 글자 수(해상도)가 정해져 있으면 아트의 폭은 글자 크기로만 정해진다.
+            그래서 크기는 하나(내지 너비 대비 %)만 두고, 저장은 글자 크기로 한다.
           */}
           <NumberSlider label="크기" value={asciiWidthPercent} min={10} max={300} unit="%"
-            hint="내지 너비 대비 · 글자 크기와 함께 움직임"
+            hint={`내지 너비 대비 · 글자 ${bg.asciiFontSize}px`}
             onChange={(percent) => patch('background', { asciiFontSize: fontForPercent(percent) })} />
-          <NumberSlider label="글자 크기" value={bg.asciiFontSize} min={2} max={40} step={0.5}
-            onChange={(asciiFontSize) => patch('background', { asciiFontSize })} />
           <NumberSlider label="대비" value={bg.asciiContrast} min={0.2} max={3} step={0.05} unit="배"
             onChange={(asciiContrast) => patch('background', { asciiContrast })} />
           <Toggle
@@ -281,27 +251,6 @@ export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null
           <NumberSlider label="세로 위치" value={Math.round(bg.asciiY)} min={0} max={100} unit="%"
             hint="0 은 위 끝, 100 은 아래 끝에 맞춤"
             onChange={(asciiY) => patch('background', { asciiY })} />
-        </>
-      ) : null}
-
-      {bg.type === 'video' ? (
-        <>
-          <div className="button-row">
-            <FileButton
-              label="영상 업로드"
-              accept="video/*"
-              onPick={async (file) => patch('background', { videoUrl: await readFileAsDataUrl(file) })}
-            />
-            {bg.videoUrl ? (
-              <button type="button" className="mini-button" onClick={() => patch('background', { videoUrl: '' })}>
-                제거
-              </button>
-            ) : null}
-          </div>
-          <TextInput label="영상 주소" value={bg.videoUrl.startsWith('data:') ? '' : bg.videoUrl}
-            placeholder="https://… (mp4/webm)"
-            onChange={(videoUrl) => patch('background', { videoUrl })} />
-          <Hint>저장할 때는 재생 중인 프레임이 그대로 캡처됩니다. 원하는 장면에서 저장하세요.</Hint>
         </>
       ) : null}
 

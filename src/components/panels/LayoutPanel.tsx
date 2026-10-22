@@ -1,12 +1,20 @@
 import { RATIO_PRESETS } from '../../defaults';
 import { useStore } from '../../store';
-import { ButtonGroup, ColorField, Field, Hint, NumberSlider, Toggle } from '../ui';
+import { useRef } from 'react';
+import { ButtonGroup, ColorField, Field, Hint, NumberSlider, Select, Toggle } from '../ui';
+import { SPLIT_RATIOS } from '../../lib/split';
+import { usePagePlan } from '../PageGuides';
 import { BORDER_STYLES, BorderSample } from '../PageBorder';
-import type { AlignY } from '../../types';
+import type { AlignY, SplitRatio } from '../../types';
 
-export function LayoutPanel() {
-  const { settings, patch } = useStore();
+export function LayoutPanel({ captureNode }: { captureNode: HTMLElement | null }) {
+  const { settings, patch, setSettings } = useStore();
   const layout = settings.layout;
+  const options = settings.exportOptions;
+  const ratioChoice: 'auto' | 'fixed' | 'split' = options.splitRatio !== 'off' ? 'split' : layout.ratioMode;
+  // '나누기' 를 껐다 다시 켤 때 고르던 비율로 돌아오게 기억해 둔다
+  const lastSplit = useRef<SplitRatio>('4:5');
+  const plan = usePagePlan(captureNode, options.splitRatio, settings);
   const border = layout.border;
   const setBorder = (change: Partial<typeof border>) => patch('layout', { border: { ...border, ...change } });
   const activeRatio = RATIO_PRESETS.find((r) => r.w === layout.ratioW && r.h === layout.ratioH);
@@ -19,14 +27,65 @@ export function LayoutPanel() {
       <NumberSlider label="이미지 너비" value={layout.width} min={320} max={1600}
         onChange={(width) => patch('layout', { width })} />
 
-      <Toggle
-        label="이미지 비율 고정"
-        checked={layout.ratioMode === 'fixed'}
-        onChange={(fixed) => patch('layout', { ratioMode: fixed ? 'fixed' : 'auto' })}
-        hint="끄면 본문 길이에 맞춰 자동으로 늘어납니다"
+      {/*
+        비율은 한 자리에서 고른다. 예전에는 '비율 고정'(여기)과 '나눠 저장'(저장 탭)이 따로 있어,
+        둘 다 켜면 무엇이 이기는지 알 수 없었다. 셋 중 하나만 고르게 한다.
+      */}
+      <ButtonGroup
+        label="이미지 비율"
+        value={ratioChoice}
+        options={[
+          { label: '자유', value: 'auto' as const, title: '본문 길이에 맞춰 늘어납니다' },
+          { label: '한 장 고정', value: 'fixed' as const, title: '정한 비율을 최소 크기로' },
+          { label: '여러 장으로 나누기', value: 'split' as const, title: '긴 글을 같은 비율의 여러 장으로' },
+        ]}
+        onChange={(choice) => {
+          if (choice !== 'split' && options.splitRatio !== 'off') lastSplit.current = options.splitRatio;
+          // 두 곳을 한 번에 바꾼다 — 따로 바꾸면 되돌리기가 두 번 필요해진다
+          setSettings((prev) => ({
+            ...prev,
+            layout: { ...prev.layout, ratioMode: choice === 'fixed' ? 'fixed' : 'auto' },
+            exportOptions: {
+              ...prev.exportOptions,
+              splitRatio: choice === 'split'
+                ? (prev.exportOptions.splitRatio === 'off' ? lastSplit.current : prev.exportOptions.splitRatio)
+                : 'off',
+            },
+          }));
+        }}
       />
+      {ratioChoice === 'auto' ? <Hint>본문 길이에 맞춰 세로로 늘어나는 한 장으로 저장합니다.</Hint> : null}
 
-      {layout.ratioMode === 'fixed' ? (
+      {ratioChoice === 'split' ? (
+        <>
+          <Select
+            label="한 장의 비율"
+            value={options.splitRatio}
+            options={SPLIT_RATIOS.filter((ratio) => ratio.value !== 'off')}
+            onChange={(splitRatio) => patch('exportOptions', { splitRatio })}
+          />
+          <Toggle
+            label="쪽 번호 넣기"
+            checked={options.pageNumbers}
+            onChange={(pageNumbers) => patch('exportOptions', { pageNumbers })}
+            hint="장마다 오른쪽 아래에 1 / 5 처럼 붙입니다"
+          />
+          {plan ? (
+            <p className="status-line" role="status">
+              {plan.pages}장으로 나뉩니다. 미리보기의 파란 점선이 나뉘는 자리입니다.
+              {plan.oversized > 0
+                ? ` 한 장보다 긴 문단이 ${plan.oversized}개 있어, 그 장은 조금 길어집니다 (글을 자르지 않습니다).`
+                : ''}
+            </p>
+          ) : null}
+          <Hint>
+            문단은 자르지 않고 다음 장으로 넘깁니다. 본문 탭에서 <strong>직접 넣은 페이지 나눔</strong>도
+            그대로 지킵니다.
+          </Hint>
+        </>
+      ) : null}
+
+      {ratioChoice === 'fixed' ? (
         <>
           <Field label="비율 프리셋">
             <div className="button-group wrap">

@@ -48,7 +48,7 @@ export function Workspace({ editorRoot, captureNode, detectedNames }: WorkspaceP
       case 'text': return <TextPanel editorRoot={editorRoot} />;
       case 'color': return <ColorPanel />;
       case 'background': return <BackgroundPanel editorRoot={editorRoot} />;
-      case 'layout': return <LayoutPanel />;
+      case 'layout': return <LayoutPanel captureNode={captureNode} />;
       case 'meta': return <MetaPanel />;
       case 'bubble': return <BubblePanel detectedNames={detectedNames} />;
       case 'export': return <ExportPanel captureNode={captureNode} editorRoot={editorRoot} />;

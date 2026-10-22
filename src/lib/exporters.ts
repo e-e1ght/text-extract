@@ -7,39 +7,6 @@ function exportFilter(node: HTMLElement): boolean {
   return !(node.dataset && node.dataset.exportIgnore === 'true');
 }
 
-/**
- * 배경 영상은 정적 이미지로 캡처할 수 없다.
- * 내보내기 직전에 현재 프레임을 캔버스로 떠서 임시 이미지로 덮어둔다.
- */
-function freezeVideos(root: HTMLElement): () => void {
-  const undos: Array<() => void> = [];
-  root.querySelectorAll('video').forEach((video) => {
-    if (!video.videoWidth || !video.videoHeight) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    try {
-      ctx.drawImage(video, 0, 0);
-    } catch {
-      return; // 교차 출처 영상 — 캡처 불가
-    }
-    const frame = document.createElement('img');
-    frame.src = canvas.toDataURL('image/png');
-    frame.style.cssText = video.style.cssText;
-    frame.className = video.className;
-    video.parentNode?.insertBefore(frame, video);
-    const previousDisplay = video.style.display;
-    video.style.display = 'none';
-    undos.push(() => {
-      frame.remove();
-      video.style.display = previousDisplay;
-    });
-  });
-  return () => undos.forEach((undo) => undo());
-}
-
 /** 아직 다 받지 못한 이미지가 있으면 캡처가 비어 나온다. 전부 준비될 때까지 기다린다. */
 async function waitForImages(node: HTMLElement): Promise<void> {
   const images = [...node.querySelectorAll('img')];
@@ -81,7 +48,6 @@ function embeddedFontCss(node: HTMLElement): Promise<string> {
 }
 
 async function withPreparedNode<T>(node: HTMLElement, run: (fontEmbedCSS: string) => Promise<T>): Promise<T> {
-  const restore = freezeVideos(node);
   /*
    * 고른 이미지의 파란 테두리는 화면 안내지 결과물이 아니다.
    * outline 이 이미지 자신에게 붙어 있어 exportFilter 로는 못 거른다 — 잠깐 떼어 둔다.
@@ -102,7 +68,6 @@ async function withPreparedNode<T>(node: HTMLElement, run: (fontEmbedCSS: string
     return await run(await embeddedFontCss(node));
   } finally {
     picked.forEach((el) => el.classList.add('is-picked'));
-    restore();
   }
 }
 
@@ -423,24 +388,6 @@ export async function copyNodeToClipboard(node: HTMLElement, scale: number): Pro
     if (!blob) return false;
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
     return true;
-  });
-}
-
-/**
- * 외부 주소 이미지를 data: URL 로 바꾼다.
- *
- * 다른 도메인의 이미지는 보안 정책 때문에 캡처에 담기지 않아, 저장하면 배경이 빠진다.
- * 미리 받아 두면 업로드한 것과 똑같이 저장된다. 서버가 허락하지 않으면 실패한다.
- */
-export async function urlToDataUrl(url: string): Promise<string> {
-  const response = await fetch(url, { mode: 'cors' });
-  if (!response.ok) throw new Error(`이미지를 받지 못했습니다 (${response.status})`);
-  const blob = await response.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
   });
 }
 

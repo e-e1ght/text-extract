@@ -6,7 +6,6 @@ import { deleteSlot, downloadPreset, loadSlots, readPresetFile, saveSlot, type P
 import { useStore } from '../../store';
 import { ButtonGroup, Field, Hint, NumberSlider, Select, TextInput, Toggle } from '../ui';
 import type { ExportOptions } from '../../types';
-import { SPLIT_RATIOS } from '../../lib/split';
 import { usePagePlan } from '../PageGuides';
 
 export function ExportPanel({
@@ -116,30 +115,10 @@ export function ExportPanel({
       <TextInput label="파일 이름" value={options.fileName} placeholder="발췌"
         onChange={(fileName) => patch('exportOptions', { fileName })} />
 
-      <Select
-        label="나눠 저장"
-        hint="긴 글을 같은 비율의 여러 장으로"
-        value={options.splitRatio}
-        options={SPLIT_RATIOS}
-        onChange={(splitRatio) => patch('exportOptions', { splitRatio })}
-      />
-      {options.splitRatio !== 'off' ? (
-        <>
-          <Toggle
-            label="쪽 번호 넣기"
-            checked={options.pageNumbers}
-            onChange={(pageNumbers) => patch('exportOptions', { pageNumbers })}
-            hint="장마다 오른쪽 아래에 1 / 5 처럼 붙입니다"
-          />
-          {plan ? (
-            <p className="status-line" role="status">
-              {plan.pages}장으로 나뉩니다. 미리보기의 파란 점선이 나뉘는 자리입니다.
-              {plan.oversized > 0
-                ? ` 한 장보다 긴 문단이 ${plan.oversized}개 있어, 그 장은 조금 길어집니다 (글을 자르지 않습니다).`
-                : ''}
-            </p>
-          ) : null}
-        </>
+      {plan ? (
+        <p className="status-line" role="status">
+          {plan.pages}장으로 나눠 저장합니다 ({options.splitRatio}). 바꾸려면 내지 옵션 › 이미지 비율.
+        </p>
       ) : null}
 
       <div className="button-row">
@@ -152,7 +131,7 @@ export function ExportPanel({
       </div>
       {status ? <p className="status-line" role="status">{status}</p> : null}
       {'showSaveFilePicker' in window ? (
-        <Hint>저장할 위치를 묻는 창이 뜹니다. 나눔선으로 여러 장이 되면 담을 폴더를 고릅니다.</Hint>
+        <Hint>저장할 위치를 묻는 창이 뜹니다. 여러 장으로 나뉘면 담을 폴더를 고릅니다.</Hint>
       ) : null}
       {exported.length > 0 ? (
         <p className="export-again">
@@ -249,23 +228,6 @@ export function ExportPanel({
       <hr className="divider" />
 
       <div className="panel-head"><span>편집 설정</span></div>
-      <Toggle
-        label="입력하는 동안 대사 자동 인식"
-        checked={settings.autoParse}
-        onChange={(autoParse) => set('autoParse', autoParse)}
-      />
-      <Toggle
-        label="결과물에서 * 기호 감추기"
-        checked={settings.hideEmphasisMarks}
-        onChange={(hideEmphasisMarks) => set('hideEmphasisMarks', hideEmphasisMarks)}
-        hint="강조 서식은 그대로 두고 별표만 숨깁니다"
-      />
-      <Toggle
-        label="괄호 안은 작은 회색 글씨로"
-        checked={settings.parenAside}
-        onChange={(parenAside) => set('parenAside', parenAside)}
-        hint="( ) 안의 글을 대사보다 2px 작은 회색으로 바꾸고 괄호는 감춥니다"
-      />
       <Toggle
         label="붙여넣을 때 빈 줄 정리"
         checked={settings.tidyBlankLines}

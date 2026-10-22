@@ -63,7 +63,6 @@ export const DEFAULT_SETTINGS: Settings = {
   themeChosen: false,
   sidebarWidth: 336,
   activePanel: 'text',
-  autoParse: true,
   tidyBlankLines: true,
   hideEmphasisMarks: true,
   parenAside: true,
@@ -88,7 +87,6 @@ export const DEFAULT_SETTINGS: Settings = {
     emphasis: '#6b6b76',
     emphasisItalic: true,
     dialogueItalic: false,
-    barColor: '#e8bf4e',
   },
   background: {
     type: 'solid',
@@ -101,7 +99,6 @@ export const DEFAULT_SETTINGS: Settings = {
     imageScale: 100,
     imageX: 50,
     imageY: 50,
-    videoUrl: '',
     patternKind: 'dots',
     patternScale: 100,
     patternColor: '#c9c2b6',
