@@ -408,18 +408,11 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
             swatches={TEXT_SWATCHES}
           />
           <div className="ep-label">크기</div>
-          <div className="popup-row">
-            <input
-              type="number"
-              className="cp-code"
-              style={{ width: 70 }}
-              min={8}
-              max={96}
-              value={settings.meta[`${metaTarget}Size`]}
-              onChange={(event) => patch('meta', { [`${metaTarget}Size`]: Math.max(8, Number(event.target.value) || 8) })}
-            />
-            <span className="popup-note">px</span>
-          </div>
+          <SizeCombo
+            value={settings.meta[`${metaTarget}Size`]}
+            max={160}
+            onApply={(size) => patch('meta', { [`${metaTarget}Size`]: size })}
+          />
         </div>
       ) : (
       <fieldset className="edit-panel-body" disabled={!hasTarget}>

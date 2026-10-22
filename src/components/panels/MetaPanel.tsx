@@ -7,14 +7,12 @@ export function MetaPanel() {
 
   return (
     <>
-      <Hint>제목·부제목·제작자의 <strong>색</strong>은 미리보기에서 그 글을 드래그한 뒤 편집 패널에서 고릅니다.</Hint>
+      <Hint>제목·부제목·제작자의 <strong>색과 크기</strong>는 미리보기에서 그 글을 드래그한 뒤 편집 패널에서 고릅니다.</Hint>
       <Toggle label="제목 표시" checked={meta.showTitle} onChange={(showTitle) => patch('meta', { showTitle })} />
       {meta.showTitle ? (
         <>
           <TextInput label="제목" value={meta.title} placeholder="제목을 입력하세요"
             onChange={(title) => patch('meta', { title })} />
-          <NumberSlider label="제목 크기" value={meta.titleSize} min={12} max={72}
-            onChange={(titleSize) => patch('meta', { titleSize })} />
         </>
       ) : null}
 
@@ -23,8 +21,6 @@ export function MetaPanel() {
         <>
           <TextInput label="부제목" value={meta.subtitle} placeholder="부제목"
             onChange={(subtitle) => patch('meta', { subtitle })} />
-          <NumberSlider label="부제목 크기" value={meta.subtitleSize} min={10} max={48}
-            onChange={(subtitleSize) => patch('meta', { subtitleSize })} />
         </>
       ) : null}
 
@@ -33,8 +29,6 @@ export function MetaPanel() {
         <>
           <TextInput label="제작자" value={meta.author} placeholder="@아이디 / 이름"
             onChange={(author) => patch('meta', { author })} />
-          <NumberSlider label="제작자 크기" value={meta.authorSize} min={8} max={32}
-            onChange={(authorSize) => patch('meta', { authorSize })} />
         </>
       ) : null}
 

@@ -1769,6 +1769,7 @@ textarea { resize: vertical; line-height: 1.5; }
   -moz-appearance: textfield;
 }
 .dd-combo input::-webkit-inner-spin-button, .dd-combo input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.dd-combo input:focus { border: none; box-shadow: none; }
 .dd-unit { flex: 0 0 auto; padding: 0 3px; font-size: 10.5px; color: var(--ui-muted); }
 .dd-caret-btn {
   flex: 0 0 auto;
@@ -1803,3 +1804,5 @@ textarea { resize: vertical; line-height: 1.5; }
 .edit-panel .dd-list { max-height: 180px; border-radius: 2px; }
 .edit-panel .dd-item { padding: 4px 6px; font-size: 13px; }
 .edit-panel .dd-list-grid .dd-item { padding: 3px 0; font-size: 10.5px; }
+/* 제목·부제목·제작자 고름 — 크기 칸은 숫자만큼만 */
+.edit-panel-body > .dd-size .dd-combo { width: 96px; }
