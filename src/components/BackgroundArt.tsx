@@ -91,6 +91,9 @@ interface AsciiProps {
 }
 
 /** 이미지를 글자로 바꿔 깐 판. (x, y) 는 배경 이미지와 같은 규칙의 위치(%) */
+/** 아트를 실제로 그리는 글자 크기 — 정수이고 커야 저장할 때 크기 오차가 작다 */
+const ASCII_BASE_SIZE = 50;
+
 export function AsciiArt({ url, color, columns, fontSize, contrast, invert, x, y }: AsciiProps) {
   const [img, setImg] = useState<HTMLImageElement | null>(null);
 
@@ -108,6 +111,12 @@ export function AsciiArt({ url, color, columns, fontSize, contrast, invert, x, y
   );
   if (!text) return null;
 
+  /*
+   * 글자 크기를 그대로 주지 않고 큰 크기로 그린 뒤 줄인다. 저장할 때 html-to-image 가 글자 크기를
+   * '내림 − 0.1px' 로 바꿔 쓰는데, 아트는 6.8px 같은 소수 크기라 5.9px 로 13% 작게 저장돼
+   * 오른쪽이 비었다. 50px 로 그리면 그 오차가 0.2% 라 보이지 않는다.
+   */
+  const scale = fontSize / ASCII_BASE_SIZE;
   return (
     <pre
       className="bg-ascii"
@@ -117,12 +126,14 @@ export function AsciiArt({ url, color, columns, fontSize, contrast, invert, x, y
          * 위치 규칙은 배경 이미지(background-position)와 같다: 0% 면 글 상자의 왼쪽(위) 끝이
          * 판의 왼쪽(위) 끝에, 100% 면 오른쪽(아래) 끝끼리 맞는다. 판보다 큰 아트도 끝까지 옮길 수 있다.
          * (예전에는 가운데 자리를 0~100% 로 묶어, 판보다 큰 아트는 맨 위까지 못 올렸다.)
+         * translate 의 % 는 줄이기 전 크기 기준이라 줄인 비율을 곱한다.
          */
         left: `${x}%`,
         top: `${y}%`,
-        transform: `translate(${-x}%, ${-y}%)`,
+        transformOrigin: '0 0',
+        transform: `translate(${-x * scale}%, ${-y * scale}%) scale(${scale})`,
         color,
-        fontSize: `${fontSize}px`,
+        fontSize: `${ASCII_BASE_SIZE}px`,
         lineHeight: ASCII_LINE_HEIGHT,
         fontFamily: ASCII_FONT,
       }}

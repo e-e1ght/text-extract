@@ -107,8 +107,12 @@ function imageRatio(
 function asciiRatio(capture: HTMLElement | null): [number, number] {
   const art = capture?.querySelector<HTMLElement>('.bg-ascii');
   const layer = art?.parentElement;
-  if (!art || !layer || !layer.offsetWidth || !layer.offsetHeight) return [0, 0];
-  return [art.offsetWidth / layer.offsetWidth, art.offsetHeight / layer.offsetHeight];
+  if (!art || !layer) return [0, 0];
+  // 아트는 크게 그려 scale 로 줄이므로 offsetWidth 가 아니라 화면에 그려진 크기로 잰다
+  const a = art.getBoundingClientRect();
+  const l = layer.getBoundingClientRect();
+  if (!l.width || !l.height) return [0, 0];
+  return [a.width / l.width, a.height / l.height];
 }
 
 function backgroundLayer(settings: Settings): ReactNode {
