@@ -197,6 +197,8 @@ export function Editor({
     root.querySelectorAll<HTMLElement>('[style*="font-family"]')
       .forEach((el) => ensureWebFont(el.style.fontFamily));
     markupRoles(root);
+    // 예전에 저장된 글에는 서식 변수(--te-italic 등)가 없을 수 있다 — 불러올 때 채운다
+    syncInlineVars(root);
     publish();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -73,13 +73,19 @@ export function syncInlineVars(root: HTMLElement): void {
     if (size) el.style.setProperty('--te-size', size);
     else el.style.removeProperty('--te-size');
 
+    // 대사·강조는 '대사 기울임' 설정 때문에 제 font-style 을 갖는다 — 이탤릭도 변수로 물려준다
+    const italic = el.style.fontStyle;
+    if (italic) el.style.setProperty('--te-italic', italic);
+    else el.style.removeProperty('--te-italic');
+
     if (!el.getAttribute('style')) el.removeAttribute('style');
   });
 }
 
-export function toggleInline(command: InlineCommand): void {
+export function toggleInline(command: InlineCommand, root?: HTMLElement): void {
   setCssStyling(true);
   document.execCommand(command);
+  if (root) syncInlineVars(root);
 }
 
 export function queryInline(command: InlineCommand): boolean {
@@ -336,6 +342,7 @@ export function removeFormatting(root: HTMLElement): void {
     if (el.dataset.teRole) return;
     el.style.removeProperty('--te-ink');
     el.style.removeProperty('--te-size');
+    el.style.removeProperty('--te-italic');
     if (!el.getAttribute('style')) el.removeAttribute('style');
   });
 }

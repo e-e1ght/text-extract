@@ -540,7 +540,7 @@ body {
 .te-dialogue {
   color: var(--te-box-ink, var(--te-say-ink, var(--te-ink, var(--te-dialogue))));
   font-size: var(--te-size, var(--te-dialogue-size, inherit));
-  font-style: var(--te-dialogue-style, normal);
+  font-style: var(--te-italic, var(--te-dialogue-style, normal));
 }
 .te-narration {
   color: var(--te-box-ink, var(--te-ink, var(--te-narration)));
@@ -549,13 +549,15 @@ body {
 .te-emph {
   color: var(--te-box-ink, var(--te-ink, var(--te-emph)));
   font-size: var(--te-size, inherit);
-  font-style: var(--te-emph-style, italic);
+  font-style: var(--te-italic, var(--te-emph-style, italic));
 }
 .te-name {
   color: var(--te-box-ink, var(--te-name-ink, var(--te-ink, var(--te-name))));
   font-size: var(--te-size, inherit);
   font-weight: 600;
 }
+/* 붙여 넣은 <i>·<em> 이나 단축키로 생긴 이탤릭도 대사 안까지 물려준다 */
+.te-capture i, .te-capture em { --te-italic: italic; }
 .te-mark { color: var(--te-box-ink, var(--te-ink, var(--te-emph))); font-size: var(--te-size, inherit); }
 /*
  * 감춘 기호는 자리까지 없앤다.
@@ -612,7 +614,7 @@ body {
 .roles-off .te-paren,
 .roles-off .te-name {
   color: inherit;
-  font-style: normal;
+  font-style: var(--te-italic, normal);
   font-weight: inherit;
 }
 

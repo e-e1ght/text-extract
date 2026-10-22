@@ -418,7 +418,7 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
               type="button"
               title={button.title}
               className={`popup-btn cmd-${button.command} ${active[button.command] ? 'is-active' : ''}`}
-              onClick={() => { toggleInline(button.command); refreshActive(); }}
+              onClick={() => { toggleInline(button.command, root); refreshActive(); }}
             >
               {button.label}
             </button>
