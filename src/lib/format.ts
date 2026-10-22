@@ -408,6 +408,97 @@ export function removeBar(root: HTMLElement): void {
   root.normalize();
 }
 
+export type RedactKind = 'bar' | 'blur';
+
+/** 선택 범위에 걸친 글자 조각(텍스트 노드)들. 경계에 걸친 것은 잘라서 범위 안쪽만 남긴다 */
+function textNodesInRange(root: HTMLElement, range: Range): Text[] {
+  const nodes: Text[] = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => {
+      // 말풍선·대본의 이름표는 우리가 붙인 표지라 가리지 않는다
+      if ((node.parentElement as HTMLElement | null)?.closest('[data-te-label]')) return NodeFilter.FILTER_REJECT;
+      return range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    },
+  });
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node as Text);
+
+  return nodes.map((node) => {
+    let text = node;
+    if (text === range.endContainer && range.endOffset < text.length) text.splitText(range.endOffset);
+    if (text === range.startContainer && range.startOffset > 0) text = text.splitText(range.startOffset);
+    return text;
+  }).filter((text) => text.data.length > 0);
+}
+
+/** 선택 범위를 덮는 가리기 조각들 */
+function redactionsInRange(root: HTMLElement, range: Range): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>('.te-redact')].filter((el) => range.intersectsNode(el));
+}
+
+/**
+ * 고른 글을 가린다 — 검은 막대 또는 흐림.
+ *
+ * 글을 지우지 않고 덮기만 하므로 언제든 풀 수 있다. 여러 줄·말풍선에 걸쳐 골라도 되도록
+ * 글자 조각마다 따로 감싼다 (한 덩어리로 감싸면 줄(div)이 글자 상자(span) 안에 들어가 깨진다).
+ */
+export function applyRedaction(root: HTMLElement, kind: RedactKind): void {
+  restoreSelection(root);
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  if (!root.contains(range.commonAncestorContainer)) return;
+
+  // 이미 가린 곳이면 방식만 바꾼다
+  const existing = redactionsInRange(root, range);
+  existing.forEach((el) => { el.dataset.teRedact = kind; });
+
+  const wrapped: HTMLElement[] = [...existing];
+  for (const text of textNodesInRange(root, range)) {
+    if ((text.parentElement as HTMLElement | null)?.closest('.te-redact')) continue;
+    const span = document.createElement('span');
+    span.className = 'te-redact';
+    span.dataset.teRedact = kind;
+    text.parentNode?.insertBefore(span, text);
+    span.appendChild(text);
+    wrapped.push(span);
+  }
+  if (wrapped.length === 0) return;
+
+  const next = document.createRange();
+  next.setStartBefore(wrapped[0]);
+  next.setEndAfter(wrapped[wrapped.length - 1]);
+  sel.removeAllRanges();
+  sel.addRange(next);
+  rememberSelection(root);
+  root.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/** 선택 범위에 걸친 가리기를 모두 푼다 */
+export function removeRedaction(root: HTMLElement): void {
+  restoreSelection(root);
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const targets = redactionsInRange(root, sel.getRangeAt(0));
+  targets.forEach((el) => {
+    const parent = el.parentNode;
+    if (!parent) return;
+    while (el.firstChild) parent.insertBefore(el.firstChild, el);
+    parent.removeChild(el);
+  });
+  if (targets.length === 0) return;
+  root.normalize();
+  root.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/** 선택 범위에 가린 곳이 있는지, 있으면 어떤 방식인지 */
+export function redactionAtSelection(root: HTMLElement | null): RedactKind | null {
+  if (!root) return null;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const found = redactionsInRange(root, sel.getRangeAt(0))[0];
+  return found ? (found.dataset.teRedact as RedactKind) : null;
+}
+
 /** 장식용 구분선을 넣는다 (페이지 나눔과 무관). */
 export function insertDivider(
   root: HTMLElement,

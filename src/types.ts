@@ -199,11 +199,17 @@ export interface CustomFont {
   label: string;
 }
 
+/** 나눠 저장할 때 한 장의 비율 (가로:세로). off 면 나누지 않는다 */
+export type SplitRatio = 'off' | '1:1' | '4:5' | '3:4' | '2:3' | '9:16' | '4:3' | '16:9';
+
 export interface ExportOptions {
   format: 'png' | 'jpeg' | 'pdf';
   scale: number;
   quality: number;
   fileName: string;
+  splitRatio: SplitRatio;
+  /** 나눠 저장할 때 장마다 '1 / 5' 를 붙인다 */
+  pageNumbers: boolean;
 }
 
 export interface Settings {

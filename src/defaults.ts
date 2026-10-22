@@ -179,6 +179,8 @@ export const DEFAULT_SETTINGS: Settings = {
     scale: 2,
     quality: 0.95,
     fileName: '발췌',
+    splitRatio: 'off',
+    pageNumbers: true,
   },
 };
 

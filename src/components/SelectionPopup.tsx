@@ -2,10 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { BAR_SWATCHES, FONT_OPTIONS, HIGHLIGHT_SWATCHES } from '../defaults';
 import {
   alignImage, applyBar, applyBubble, applyFontFamily, applyFontSize, applyHighlight,
-  applyScript, applyTextColor, barAtSelection, blockAtSelection, clearHighlight,
-  hasSelectionInside, queryInline, removeBlock, removeFormatting, selectionImage,
-  selectionRole, selectionText, toggleInline,
-  type BlockKind, type ImageAlign, type InlineCommand,
+  applyRedaction, applyScript, applyTextColor, barAtSelection, blockAtSelection, clearHighlight,
+  hasSelectionInside, queryInline, redactionAtSelection, removeBlock, removeFormatting,
+  removeRedaction, selectionImage, selectionRole, selectionText, toggleInline,
+  type BlockKind, type ImageAlign, type InlineCommand, type RedactKind,
 } from '../lib/format';
 import { fontFamilyOf } from '../lib/fonts';
 import { rememberColor } from '../lib/recentColors';
@@ -35,7 +35,7 @@ const TEXT_SWATCHES = ['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8', '#
 
 type Panel =
   | 'none' | 'color' | 'highlight' | 'size' | 'character'
-  | 'bubble' | 'script' | 'font' | 'bar' | 'image';
+  | 'bubble' | 'script' | 'font' | 'bar' | 'image' | 'redact';
 /** 색을 '이 선택 영역만' 바꿀지, '같은 역할 전체'에 적용할지 */
 type ColorScope = 'role' | 'selection';
 
@@ -60,6 +60,8 @@ export function SelectionPopup({
   const [bubbleSpeaker, setBubbleSpeaker] = useState('');
   /** 커서가 이미 말풍선/대본 안에 있으면 '만들기' 대신 '바꾸기·풀기' 를 보여준다 */
   const [inBlock, setInBlock] = useState<BlockKind | null>(null);
+  /** 고른 곳이 이미 가려져 있으면 그 방식 — '가리기 풀기' 를 보여 줄지 정한다 */
+  const [redaction, setRedaction] = useState<RedactKind | null>(null);
 
   /*
    * 위치는 화면(뷰포트) 좌표를 그대로 쓰고, CSS 는 position: fixed 다.
@@ -120,6 +122,7 @@ export function SelectionPopup({
     const block = blockAtSelection(editorRoot);
     setInBlock(block ? (block.classList.contains('te-script') ? 'script' : 'bubble') : null);
     if (block?.dataset.teSpeaker) setBubbleSpeaker(block.dataset.teSpeaker);
+    setRedaction(redactionAtSelection(editorRoot));
   }, [editorRoot, boundary, zoom]);
 
   // 하위 패널을 여닫으면 팝업 높이가 달라진다 — 그리자마자 자리를 다시 잡는다.
@@ -323,6 +326,14 @@ export function SelectionPopup({
           캐릭터
         </button>
         <span className="popup-divider" />
+        <button
+          type="button"
+          title="고른 글을 검은 막대나 흐림으로 가리기"
+          className={`popup-btn ${panel === 'redact' ? 'is-active' : ''}`}
+          onClick={() => setPanel((v) => (v === 'redact' ? 'none' : 'redact'))}
+        >
+          가리기
+        </button>
         <button type="button" title="서식 지우기" className="popup-btn"
           onClick={() => { removeFormatting(editorRoot); refreshActive(); }}>
           지우기
@@ -476,6 +487,42 @@ export function SelectionPopup({
             {barAtSelection(editorRoot)
               ? '이미 세로선이 있어 색만 바뀝니다.'
               : '드래그한 글 왼쪽에 세로선을 붙입니다.'}
+          </p>
+        </div>
+      ) : null}
+
+      {panel === 'redact' ? (
+        <div className="popup-sub popup-sub-column">
+          <div className="popup-row">
+            <button
+              type="button"
+              className={`popup-btn ${redaction === 'bar' ? 'is-active' : ''}`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => withSelection(() => { applyRedaction(editorRoot, 'bar'); setRedaction('bar'); })}
+            >
+              ▇ 검은 막대
+            </button>
+            <button
+              type="button"
+              className={`popup-btn ${redaction === 'blur' ? 'is-active' : ''}`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => withSelection(() => { applyRedaction(editorRoot, 'blur'); setRedaction('blur'); })}
+            >
+              흐림
+            </button>
+            {redaction ? (
+              <button
+                type="button"
+                className="popup-btn"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => withSelection(() => { removeRedaction(editorRoot); setRedaction(null); })}
+              >
+                가리기 풀기
+              </button>
+            ) : null}
+          </div>
+          <p className="popup-note">
+            글은 지우지 않고 덮기만 합니다. 저장한 그림에서는 읽을 수 없고, 여기서 언제든 풀 수 있습니다.
           </p>
         </div>
       ) : null}

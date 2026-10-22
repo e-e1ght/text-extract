@@ -6,12 +6,15 @@ import { deleteSlot, downloadPreset, loadSlots, readPresetFile, saveSlot, type P
 import { useStore } from '../../store';
 import { ButtonGroup, Field, Hint, NumberSlider, Select, TextInput, Toggle } from '../ui';
 import type { ExportOptions } from '../../types';
+import { SPLIT_RATIOS } from '../../lib/split';
+import { usePagePlan } from '../PageGuides';
 
 export function ExportPanel({
   captureNode, editorRoot,
 }: { captureNode: HTMLElement | null; editorRoot: HTMLElement | null }) {
   const { settings, patch, set, replaceSettings, resetSettings } = useStore();
   const options = settings.exportOptions;
+  const plan = usePagePlan(captureNode, options.splitRatio, settings);
 
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
@@ -112,6 +115,32 @@ export function ExportPanel({
       ) : null}
       <TextInput label="파일 이름" value={options.fileName} placeholder="발췌"
         onChange={(fileName) => patch('exportOptions', { fileName })} />
+
+      <Select
+        label="나눠 저장"
+        hint="긴 글을 같은 비율의 여러 장으로"
+        value={options.splitRatio}
+        options={SPLIT_RATIOS}
+        onChange={(splitRatio) => patch('exportOptions', { splitRatio })}
+      />
+      {options.splitRatio !== 'off' ? (
+        <>
+          <Toggle
+            label="쪽 번호 넣기"
+            checked={options.pageNumbers}
+            onChange={(pageNumbers) => patch('exportOptions', { pageNumbers })}
+            hint="장마다 오른쪽 아래에 1 / 5 처럼 붙입니다"
+          />
+          {plan ? (
+            <p className="status-line" role="status">
+              {plan.pages}장으로 나뉩니다. 미리보기의 파란 점선이 나뉘는 자리입니다.
+              {plan.oversized > 0
+                ? ` 한 장보다 긴 문단이 ${plan.oversized}개 있어, 그 장은 조금 길어집니다 (글을 자르지 않습니다).`
+                : ''}
+            </p>
+          ) : null}
+        </>
+      ) : null}
 
       <div className="button-row">
         <button type="button" className="primary-button" disabled={busy || !captureNode} onClick={runExport}>

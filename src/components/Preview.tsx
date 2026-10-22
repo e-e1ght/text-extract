@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useStore } from '../store';
 import { AsciiArt, PatternFill } from './BackgroundArt';
+import { PageGuides, usePagePlan } from './PageGuides';
 import { ensureWebFont } from '../lib/webfonts';
 import type { ImageSlot, Settings, SlotSide } from '../types';
 
@@ -306,6 +307,13 @@ interface PreviewProps {
 
 export function Preview({ settings, captureRef, children }: PreviewProps) {
   const { layout, typography, roles, background, meta } = settings;
+  // 나눠 저장할 자리를 미리보기에 점선으로 보이려면 결과물 상자를 직접 알아야 한다
+  const [captureNode, setCaptureNode] = useState<HTMLDivElement | null>(null);
+  const plan = usePagePlan(captureNode, settings.exportOptions.splitRatio, settings);
+  const attachCapture = useCallback((node: HTMLDivElement | null) => {
+    captureRef(node);
+    setCaptureNode(node);
+  }, [captureRef]);
   const { patch, adjustingImage, adjustingSlot } = useStore();
   const slots = settings.imageSlots;
   const slotOn = (side: SlotSide) => slots.enabled && slots[side].enabled;
@@ -394,7 +402,7 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
 
   return (
     <div
-      ref={captureRef}
+      ref={attachCapture}
       className={[
         'te-capture',
         roles.enabled ? '' : 'roles-off',
@@ -480,6 +488,7 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
         />
       ) : null}
 
+      {plan ? <PageGuides cuts={plan.cuts} /> : null}
       <div className="te-content" style={contentStyle}>
         {renderSlot('top')}
         {/* 왼쪽·오른쪽 슬롯이 본문과 한 줄에 서도록 가로로 묶는다 */}

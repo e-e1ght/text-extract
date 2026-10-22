@@ -1,5 +1,6 @@
 import { getFontEmbedCSS, toBlob, toPng } from 'html-to-image';
 import type { ExportOptions } from '../types';
+import { planPages, ratioOf } from './split';
 
 /** 내보내기에서 제외할 요소 (플레이스홀더, 안내 배지 등) */
 function exportFilter(node: HTMLElement): boolean {
@@ -105,19 +106,26 @@ async function withPreparedNode<T>(node: HTMLElement, run: (fontEmbedCSS: string
   }
 }
 
+interface Pager {
+  pages: number;
+  show: (page: number) => void;
+  restore: () => void;
+}
+
+const SINGLE: Pager = { pages: 1, show: () => {}, restore: () => {} };
+
 /**
- * 페이지 나눔선을 기준으로 본문을 쪼개, 페이지마다 한 장씩 담아낸다.
- * 나눔선이 없으면 통째로 한 장이다.
+ * 본문을 장으로 나눠, 장마다 한 장씩 담아낸다.
+ *  - 비율로 나누기를 켰으면: 그 비율의 높이에 맞춰 문단 단위로 나눈다 (split.ts).
+ *  - 아니면: 손으로 넣은 페이지 나눔선을 기준으로. 나눔선이 없으면 통째로 한 장.
  *
  * 줄마다 display 를 직접 껐다 켜므로, 캡처가 끝나면 반드시 되돌려야 한다.
  */
-function paginate(capture: HTMLElement): { pages: number; show: (page: number) => void; restore: () => void } {
+function paginate(capture: HTMLElement, options: ExportOptions): Pager {
   const editor = capture.querySelector<HTMLElement>('.editor');
-  if (!editor) return { pages: 1, show: () => {}, restore: () => {} };
-
-  if (!editor.querySelector('[data-te-page-break]')) {
-    return { pages: 1, show: () => {}, restore: () => {} };
-  }
+  if (!editor) return SINGLE;
+  const splitting = ratioOf(options.splitRatio) !== null;
+  if (!splitting && !editor.querySelector('[data-te-page-break]')) return SINGLE;
 
   // contenteditable 은 첫 줄을 <div> 로 감싸지 않는 경우가 있다.
   // 맨 위 텍스트 노드를 임시 span 으로 싸 두어야 페이지별로 숨길 수 있다.
@@ -133,25 +141,75 @@ function paginate(capture: HTMLElement): { pages: number; show: (page: number) =
 
   const blocks = [...editor.children] as HTMLElement[];
   const previous = blocks.map((el) => el.style.display);
-  const pageOf = new Map<HTMLElement, number>();
-  let page = 0;
-  for (const block of blocks) {
-    if (block.dataset.tePageBreak === 'true') {
-      page += 1;
-      continue;
+  const previousMinHeight = capture.style.minHeight;
+  let pageNo: HTMLElement | null = null;
+
+  let groups: HTMLElement[][] = [];
+  let pageHeight = 0;
+  const plan = splitting ? planPages(capture, options.splitRatio) : null;
+  if (plan) {
+    groups = plan.groups;
+    pageHeight = plan.pageHeight;
+  } else {
+    groups = [[]];
+    for (const block of blocks) {
+      if (block.dataset.tePageBreak === 'true') groups.push([]);
+      else groups[groups.length - 1].push(block);
     }
-    pageOf.set(block, page);
+  }
+
+  const previousMargin = blocks.map((el) => el.style.marginTop);
+  const display = (group: HTMLElement[]) => {
+    const visible = new Set(group);
+    blocks.forEach((block, index) => {
+      block.style.display = visible.has(block) ? '' : 'none';
+      block.style.marginTop = previousMargin[index];
+    });
+    /*
+     * 문단 간격은 '앞 줄 다음' 에 붙는다(div + div). 둘째 장부터는 그 장의 첫 줄 앞에
+     * 숨긴 줄이 있어 간격이 남아, 첫 장보다 글이 한 칸 내려와 시작했다. 장의 첫 줄은 떼어 낸다.
+     */
+    if (group[0]) group[0].style.marginTop = '0px';
+  };
+
+  if (plan) {
+    capture.style.minHeight = `${pageHeight}px`;
+    /*
+     * 계획은 어림이라, 장마다 실제로 그려 보고 넘치면 마지막 문단을 다음 장으로 민다.
+     * 문단 하나가 한 장보다 길면 어쩔 수 없이 그 장만 길어진다 (글을 자르지 않는다).
+     */
+    for (let i = 0; i < groups.length; i += 1) {
+      display(groups[i]);
+      while (groups[i].length > 1 && capture.offsetHeight > pageHeight + 1) {
+        const moved = groups[i].pop() as HTMLElement;
+        if (!groups[i + 1]) groups.push([]);
+        groups[i + 1].unshift(moved);
+        display(groups[i]);
+      }
+    }
+    if (options.pageNumbers && groups.length > 1) {
+      pageNo = document.createElement('div');
+      pageNo.className = 'te-page-no';
+      capture.appendChild(pageNo);
+    }
   }
 
   return {
-    pages: page + 1,
+    pages: groups.length,
     show: (target: number) => {
-      blocks.forEach((block) => {
-        block.style.display = pageOf.get(block) === target ? '' : 'none';
-      });
+      display(groups[target] ?? []);
+      if (pageNo) pageNo.textContent = `${target + 1} / ${groups.length}`;
     },
     restore: () => {
-      blocks.forEach((block, index) => { block.style.display = previous[index]; });
+      pageNo?.remove();
+      capture.style.minHeight = previousMinHeight;
+      if (capture.getAttribute('style') === '') capture.removeAttribute('style');
+      blocks.forEach((block, index) => {
+        block.style.display = previous[index];
+        block.style.marginTop = previousMargin[index];
+        // 빈 style="" 이 남으면 저장된 본문과 되돌리기 기록에 쓸데없는 차이가 생긴다
+        if (block.getAttribute('style') === '') block.removeAttribute('style');
+      });
       temps.forEach((wrapper) => {
         const parent = wrapper.parentNode;
         if (!parent) return;
@@ -161,6 +219,13 @@ function paginate(capture: HTMLElement): { pages: number; show: (page: number) =
       editor.normalize();
     },
   };
+}
+
+/** 저장하면 몇 장이 나올지 (저장 창을 파일 하나로 열지, 폴더로 열지 정할 때 쓴다) */
+export function expectedPages(capture: HTMLElement, options: ExportOptions): number {
+  const plan = planPages(capture, options.splitRatio);
+  if (plan) return plan.groups.length;
+  return capture.querySelectorAll('.editor [data-te-page-break]').length + 1;
 }
 
 function triggerDownload(url: string, fileName: string) {
@@ -218,7 +283,7 @@ export async function pickSaveTarget(
   const picker = window as unknown as PickerWindow;
   // 다른 창 안에 끼워진 페이지에서는 저장 창이 막혀 있다.
   if (window.self !== window.top) return null;
-  const pages = node.querySelectorAll('.editor [data-te-page-break]').length + 1;
+  const pages = expectedPages(node, options);
   const ext = options.format === 'jpeg' ? 'jpg' : options.format;
 
   try {
@@ -284,7 +349,7 @@ export async function exportNode(
   };
 
   await withPreparedNode(node, async (fontEmbedCSS) => {
-    const pager = paginate(node);
+    const pager = paginate(node, options);
     const suffix = (page: number) => (pager.pages > 1 ? `-${page + 1}` : '');
 
     const shot = async (type: 'png' | 'jpeg') => {
