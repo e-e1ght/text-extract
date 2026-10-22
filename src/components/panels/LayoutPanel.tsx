@@ -1,11 +1,14 @@
 import { RATIO_PRESETS } from '../../defaults';
 import { useStore } from '../../store';
-import { ButtonGroup, Field, Hint, NumberSlider, Toggle } from '../ui';
+import { ButtonGroup, ColorField, Field, Hint, NumberSlider, Toggle } from '../ui';
+import { BORDER_STYLES, BorderSample } from '../PageBorder';
 import type { AlignY } from '../../types';
 
 export function LayoutPanel() {
   const { settings, patch } = useStore();
   const layout = settings.layout;
+  const border = layout.border;
+  const setBorder = (change: Partial<typeof border>) => patch('layout', { border: { ...border, ...change } });
   const activeRatio = RATIO_PRESETS.find((r) => r.w === layout.ratioW && r.h === layout.ratioH);
 
   const setAllPadding = (value: number) =>
@@ -81,6 +84,48 @@ export function LayoutPanel() {
         onChange={(padRight) => patch('layout', { padRight })} />
       <NumberSlider label="모서리 둥글기" value={layout.radius} min={0} max={64}
         onChange={(radius) => patch('layout', { radius })} />
+
+      <hr className="divider" />
+
+      <div className="panel-head"><span>페이지 테두리</span></div>
+      <Toggle
+        label="테두리 두르기"
+        checked={border.enabled}
+        onChange={(enabled) => setBorder({ enabled })}
+        hint="저장되는 그림 가장자리에 선을 두릅니다. 글 뒤에 깔려 글을 가리지 않습니다"
+      />
+      {border.enabled ? (
+        <>
+          <Field label="선 모양">
+            <div className="button-group border-styles">
+              {BORDER_STYLES.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  title={option.label}
+                  className={border.style === option.value ? 'is-active' : ''}
+                  onClick={() => setBorder({ style: option.value })}
+                >
+                  <BorderSample style={option.value} />
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <ColorField label="색" value={border.color} onChange={(color) => setBorder({ color })} />
+          <NumberSlider label="불투명도" value={Math.round(border.opacity * 100)} min={0} max={100} unit="%"
+            onChange={(value) => setBorder({ opacity: value / 100 })} />
+          <NumberSlider label="굵기" value={border.width} min={0.5} max={16} step={0.5}
+            onChange={(width) => setBorder({ width })} />
+          <NumberSlider label="안쪽 거리" value={border.inset} min={0} max={120}
+            hint="가장자리에서 얼마나 들어와 그을지"
+            onChange={(inset) => setBorder({ inset })} />
+          {border.inset + border.width * (border.style === 'double' ? 4 : 1)
+            > Math.min(layout.padTop, layout.padRight, layout.padBottom, layout.padLeft) ? (
+              <Hint>테두리가 여백 안쪽까지 들어와 글과 겹칠 수 있습니다. 안쪽 거리를 줄이거나 여백을 늘려 보세요.</Hint>
+            ) : null}
+        </>
+      ) : null}
     </>
   );
 }

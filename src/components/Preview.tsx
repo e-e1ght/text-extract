@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useStore } from '../store';
 import { AsciiArt, PatternFill } from './BackgroundArt';
+import { PageBorder } from './PageBorder';
 import { PageGuides, usePagePlan } from './PageGuides';
 import { ensureWebFont } from '../lib/webfonts';
 import type { ImageSlot, Settings, SlotSide } from '../types';
@@ -351,6 +352,10 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
     ['--te-emph-style' as string]: roles.emphasisItalic ? 'italic' : 'normal',
     ['--te-dialogue-style' as string]: roles.dialogueItalic ? 'italic' : 'normal',
     ['--te-dialogue-size' as string]: `${typography.dialogueFontSize}px`,
+    // 쪽 번호는 테두리 안쪽에 둔다 — 그냥 두면 테두리 선 위에 겹쳐 찍힌다
+    ['--te-pageno-inset' as string]: layout.border.enabled
+      ? `${layout.border.inset + layout.border.width * (layout.border.style === 'double' ? 4 : 1) + 10}px`
+      : '14px',
     /* 곁말: 대사보다 2px 작게, 회색으로. 크기는 대사 크기를 따라 움직인다 */
     ['--te-paren-size' as string]: `${Math.max(1, typography.dialogueFontSize - 2)}px`,
     ['--te-paren' as string]: '#8a8a93',
@@ -488,6 +493,8 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
         />
       ) : null}
 
+      {/* 배경 위 · 글 아래 — 글에는 닿지 않는다 */}
+      <PageBorder border={layout.border} radius={layout.radius} />
       {plan ? <PageGuides cuts={plan.cuts} /> : null}
       <div className="te-content" style={contentStyle}>
         {renderSlot('top')}

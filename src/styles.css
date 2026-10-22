@@ -440,6 +440,13 @@ body {
   user-select: none;
 }
 .bg-overlay { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+/* 페이지 테두리 — 배경(0)·오버레이(1) 위, 글(2) 아래 */
+.page-border { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.page-border-line { position: absolute; overflow: visible; display: block; }
+/* 테두리 모양 고르는 단추 */
+.button-group.border-styles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.button-group.border-styles button { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 4px 6px; }
+.border-sample { width: 100%; max-width: 56px; height: 12px; display: block; }
 
 .te-content {
   position: relative;
@@ -859,8 +866,8 @@ body {
 /* 저장할 때 장마다 붙는 쪽 번호 */
 .te-page-no {
   position: absolute;
-  right: 20px;
-  bottom: 14px;
+  right: max(20px, var(--te-pageno-inset, 14px));
+  bottom: var(--te-pageno-inset, 14px);
   z-index: 3;
   font-size: 12px;
   letter-spacing: 0.06em;

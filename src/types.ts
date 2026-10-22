@@ -90,6 +90,21 @@ export interface Layout {
   ratioH: number;
   alignY: AlignY;
   radius: number;
+  border: PageBorder;
+}
+
+export type BorderStyle = 'solid' | 'dashed' | 'longdash' | 'dotted' | 'double' | 'dashdot';
+
+/** 결과물 가장자리를 두르는 테두리. 배경 위 · 글 아래에 깔린다 */
+export interface PageBorder {
+  enabled: boolean;
+  style: BorderStyle;
+  color: string;
+  opacity: number;
+  /** 선 굵기 (px) */
+  width: number;
+  /** 가장자리에서 안쪽으로 떨어진 거리 (px) */
+  inset: number;
 }
 
 export interface Meta {

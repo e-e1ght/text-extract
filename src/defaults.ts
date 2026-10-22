@@ -130,6 +130,14 @@ export const DEFAULT_SETTINGS: Settings = {
     ratioH: 5,
     alignY: 'top',
     radius: 8,
+    border: {
+      enabled: false,
+      style: 'solid',
+      color: '#3c3c43',
+      opacity: 0.6,
+      width: 1.5,
+      inset: 16,
+    },
   },
   meta: {
     showTitle: false,
