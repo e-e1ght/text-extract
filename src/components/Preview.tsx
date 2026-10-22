@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
 import { useStore } from '../store';
+import { AsciiArt, PatternFill } from './BackgroundArt';
 import { ensureWebFont } from '../lib/webfonts';
 import type { ImageSlot, Settings, SlotSide } from '../types';
 
@@ -121,6 +122,33 @@ function backgroundLayer(settings: Settings): ReactNode {
             muted
             playsInline
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        </div>
+      );
+    case 'pattern':
+      return (
+        <div className="bg-layer" style={{ ...base, background: bg.color }}>
+          <PatternFill
+            kind={bg.patternKind}
+            scale={bg.patternScale}
+            color={bg.patternColor}
+            angle={bg.patternAngle}
+            opacity={bg.patternOpacity}
+          />
+        </div>
+      );
+    case 'ascii':
+      return (
+        <div className="bg-layer" style={{ ...base, background: bg.color, overflow: 'hidden' }}>
+          <AsciiArt
+            url={bg.asciiUrl}
+            color={bg.asciiColor}
+            columns={bg.asciiColumns}
+            fontSize={bg.asciiFontSize}
+            contrast={bg.asciiContrast}
+            invert={bg.asciiInvert}
+            x={bg.asciiX}
+            y={bg.asciiY}
           />
         </div>
       );
@@ -297,7 +325,9 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
   // 고른 본문 글꼴만 받아 온다 (미리 여덟 벌을 받아 두지 않는다)
   useEffect(() => { ensureWebFont(typography.fontFamily); }, [typography.fontFamily]);
 
-  const canAdjust = adjustingImage && background.type === 'image' && Boolean(background.imageUrl);
+  const adjustingAscii = adjustingImage && background.type === 'ascii' && Boolean(background.asciiUrl);
+  const canAdjust = adjustingAscii
+    || (adjustingImage && background.type === 'image' && Boolean(background.imageUrl));
 
   const frameStyle: CSSProperties = {
     width: `${layout.width}px`,
@@ -384,6 +414,12 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
           title="드래그해서 위치를, 휠을 굴려 크기를 조절하세요"
           onWheel={(event) => {
             event.preventDefault();
+            if (adjustingAscii) {
+              // 아스키 아트의 크기는 곧 글자 크기다 (가로 글자 수는 그대로)
+              const next = background.asciiFontSize * (event.deltaY > 0 ? 0.94 : 1.06);
+              patch('background', { asciiFontSize: Math.round(Math.min(40, Math.max(2, next)) * 10) / 10 });
+              return;
+            }
             /*
              * 크기는 '직접 크기 지정' 일 때만 뜻이 있다.
              * 꽉 채우기 상태에서 휠을 굴리면 그 자리에서 직접 지정으로 넘어간다
@@ -410,6 +446,14 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
             const dx = ((event.clientX - start.x) / start.w) * 100;
             const dy = ((event.clientY - start.y) / start.h) * 100;
             drag.current = { ...start, x: event.clientX, y: event.clientY };
+            if (adjustingAscii) {
+              // 아스키 아트는 글 상자 가운데의 자리라, 끄는 방향 그대로 움직인다
+              patch('background', {
+                asciiX: Math.min(100, Math.max(0, background.asciiX + dx)),
+                asciiY: Math.min(100, Math.max(0, background.asciiY + dy)),
+              });
+              return;
+            }
             patch('background', {
               imageX: Math.min(100, Math.max(0, background.imageX - dx)),
               imageY: Math.min(100, Math.max(0, background.imageY - dy)),
@@ -423,7 +467,9 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
         >
           <span className="bg-drag-badge">
             배경 조절 중 — 드래그로 위치, 휠로 크기
-            {background.imageFit === 'custom' ? ` · ${Math.round(background.imageScale)}%` : ''}
+            {adjustingAscii
+              ? ` · 글자 ${background.asciiFontSize}px`
+              : background.imageFit === 'custom' ? ` · ${Math.round(background.imageScale)}%` : ''}
           </span>
         </div>
       ) : null}

@@ -184,7 +184,11 @@ export function App() {
               type="button"
               className="top-button"
               title={settings.appTheme === 'dark' ? '라이트 모드로' : '다크 모드로'}
-              onClick={() => set('appTheme', settings.appTheme === 'dark' ? 'light' : 'dark')}
+              onClick={() => setSettings((prev) => ({
+                ...prev,
+                appTheme: prev.appTheme === 'dark' ? 'light' : 'dark',
+                themeChosen: true,
+              }))}
             >
               {settings.appTheme === 'dark' ? <IconSun /> : <IconMoon />}
             </button>

@@ -3,7 +3,6 @@ import {
   copyNodeToClipboard, exportNode, pickSaveTarget, releaseExported, type ExportedFile,
 } from '../../lib/exporters';
 import { deleteSlot, downloadPreset, loadSlots, readPresetFile, saveSlot, type PresetSlot } from '../../lib/presets';
-import { stripAllFormatting } from '../../lib/format';
 import { useStore } from '../../store';
 import { ButtonGroup, Field, Hint, NumberSlider, Select, TextInput, Toggle } from '../ui';
 import type { ExportOptions } from '../../types';
@@ -72,6 +71,16 @@ export function ExportPanel({
     } finally {
       setBusy(false);
     }
+  };
+
+  /** 본문을 빈 줄 하나로. 빈 줄을 남겨야 바로 이어서 쓸 수 있다. */
+  const clearBody = () => {
+    if (!editorRoot) return;
+    const line = document.createElement('div');
+    line.appendChild(document.createElement('br'));
+    editorRoot.replaceChildren(line);
+    // DOM 을 직접 바꿨으니 알려 줘야 저장된 본문과 되돌리기 기록이 따라온다
+    editorRoot.dispatchEvent(new Event('input', { bubbles: true }));
   };
 
   return (
@@ -254,26 +263,21 @@ export function ExportPanel({
           type="button"
           className="mini-button danger"
           onClick={() => {
-            if (!window.confirm('모든 서식을 지우고 기본값으로 되돌릴까요?\n\n패널 편집 옵션과 본문에 직접 준 서식(볼드·색·크기)이 모두 사라집니다.\n본문 글자는 그대로 남습니다.')) return;
+            if (!window.confirm('전부 지우고 처음 상태로 되돌릴까요?\n\n본문 글, 편집 옵션, 제목·캐릭터·스티커·배경이 모두 사라집니다.\n잘못 눌렀다면 바로 Ctrl+Z 로 되돌릴 수 있습니다.')) return;
             resetSettings();
-            if (editorRoot) {
-              stripAllFormatting(editorRoot);
-              // DOM 을 직접 바꿨으므로 알려 줘야 저장된 본문까지 갱신된다.
-              // 이걸 빠뜨리면 새로고침했을 때 예전 서식이 되살아난다.
-              editorRoot.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-            announceReset('모든 서식을 기본값으로 되돌렸습니다.');
+            clearBody();
+            announceReset('전부 처음 상태로 되돌렸습니다.');
           }}
         >
-          모든 서식 초기화
+          전부 초기화
         </button>
+        {/* 아래 둘은 지우는 범위가 좁고 Ctrl+Z 로 되돌릴 수 있어 묻지 않는다 */}
         <button
           type="button"
           className="mini-button"
           onClick={() => {
-            if (!window.confirm('패널 편집 옵션만 기본값으로 되돌릴까요? 본문에 직접 준 서식은 남습니다.')) return;
             resetSettings();
-            announceReset('편집 옵션을 되돌렸습니다.');
+            announceReset('편집 옵션을 되돌렸습니다. (Ctrl+Z 로 되돌리기)');
           }}
         >
           편집 옵션만
@@ -283,14 +287,8 @@ export function ExportPanel({
           className="mini-button"
           disabled={!editorRoot}
           onClick={() => {
-            if (!editorRoot) return;
-            if (!window.confirm('본문 글만 모두 지울까요?\n\n편집 옵션·제목·스티커 등 서식은 그대로 남습니다.\n잘못 지웠다면 Ctrl+Z 로 되돌릴 수 있습니다.')) return;
-            // 빈 줄 하나만 남겨 두어야 바로 이어서 쓸 수 있다.
-            const line = document.createElement('div');
-            line.appendChild(document.createElement('br'));
-            editorRoot.replaceChildren(line);
-            editorRoot.dispatchEvent(new Event('input', { bubbles: true }));
-            announceReset('본문을 지웠습니다.');
+            clearBody();
+            announceReset('본문을 지웠습니다. (Ctrl+Z 로 되돌리기)');
           }}
         >
           본문만 지우기

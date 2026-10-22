@@ -114,7 +114,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     loadState()
       .then(({ settings: stored, content }) => {
         if (!alive) return;
-        if (stored) setSettingsState(mergeSettings(DEFAULT_SETTINGS, stored));
+        if (stored) {
+          const merged = mergeSettings(DEFAULT_SETTINGS, stored);
+          /*
+           * 기본 테마가 다크에서 라이트로 바뀌었다. 예전 저장값의 'dark' 는 대개 고른 게
+           * 아니라 그때의 기본값이라, 직접 고른 기록이 없으면 새 기본값을 따른다.
+           */
+          if (!merged.themeChosen) merged.appTheme = DEFAULT_SETTINGS.appTheme;
+          setSettingsState(merged);
+        }
         if (content !== null) initialContent.current = content;
       })
       .catch(() => { /* 못 읽으면 기본값으로 시작한다 */ })
@@ -159,6 +167,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSettingsState((prev) => ({
       ...DEFAULT_SETTINGS,
       appTheme: prev.appTheme,
+      themeChosen: prev.themeChosen,
       sidebarSide: prev.sidebarSide,
       sidebarWidth: prev.sidebarWidth,
       activePanel: prev.activePanel,

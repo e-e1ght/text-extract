@@ -1,10 +1,27 @@
 import { useState } from 'react';
 import { readFileAsDataUrl, urlToDataUrl } from '../../lib/exporters';
 import { useStore } from '../../store';
-import { ButtonGroup, ColorField, Field, FileButton, Hint, NumberSlider, Select, TextInput } from '../ui';
-import type { BackgroundType } from '../../types';
+import { ColorField, Field, FileButton, Hint, NumberSlider, Select, TextInput, Toggle } from '../ui';
+import type { BackgroundType, PatternKind } from '../../types';
+import { PatternFill } from '../BackgroundArt';
 import { ImageSection } from './ImageSection';
 import { SlotSection } from './SlotSection';
+
+const BG_KINDS: Array<{ label: string; value: BackgroundType }> = [
+  { label: '단색', value: 'solid' },
+  { label: '그라데이션', value: 'gradient' },
+  { label: '이미지 / GIF', value: 'image' },
+  { label: '영상', value: 'video' },
+  { label: '패턴', value: 'pattern' },
+  { label: '아스키 아트', value: 'ascii' },
+];
+
+/** previewScale — 작은 견본 칸 안에 무늬가 몇 번 되풀이돼 보이도록 줄인 배율 */
+const PATTERNS: Array<{ label: string; value: PatternKind; previewScale: number }> = [
+  { label: '점', value: 'dots', previewScale: 70 },
+  { label: '체크', value: 'check', previewScale: 40 },
+  { label: '별', value: 'stars', previewScale: 22 },
+];
 
 export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
   const { settings, patch, adjustingImage, setAdjustingImage } = useStore();
@@ -30,17 +47,25 @@ export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null
       <hr className="divider" />
 
       <div className="panel-head"><span>배경</span></div>
-      <ButtonGroup
-        label="배경 종류"
-        value={bg.type}
-        options={[
-          { label: '단색', value: 'solid' as BackgroundType },
-          { label: '그라데이션', value: 'gradient' as BackgroundType },
-          { label: '이미지 / GIF', value: 'image' as BackgroundType },
-          { label: '영상', value: 'video' as BackgroundType },
-        ]}
-        onChange={(type) => patch('background', { type })}
-      />
+      <Field label="배경 종류">
+        {/* 여섯 가지라 한 줄에 다 넣으면 글자가 잘린다 — 3열 두 줄로 */}
+        <div className="button-group bg-kinds">
+          {BG_KINDS.map((kind) => (
+            <button
+              key={kind.value}
+              type="button"
+              className={bg.type === kind.value ? 'is-active' : ''}
+              onClick={() => {
+                // 다른 종류로 넘어가면 드래그 조절도 끈다 — 엉뚱한 대상을 끌게 되므로
+                if (kind.value !== bg.type) setAdjustingImage(false);
+                patch('background', { type: kind.value });
+              }}
+            >
+              {kind.label}
+            </button>
+          ))}
+        </div>
+      </Field>
 
       {bg.type === 'solid' ? (
         <ColorField label="배경색" value={bg.color} onChange={(color) => patch('background', { color })} />
@@ -131,6 +156,111 @@ export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null
             onChange={(imageY) => patch('background', { imageY })} />
 
           <Hint>GIF 는 미리보기에서 움직이지만, 이미지·PDF 로 저장하면 한 장면으로 고정됩니다.</Hint>
+        </>
+      ) : null}
+
+      {bg.type === 'pattern' ? (
+        <>
+          <Field label="무늬">
+            <div className="pattern-swatches">
+              {PATTERNS.map((pattern) => (
+                <button
+                  key={pattern.value}
+                  type="button"
+                  className={`pattern-swatch${bg.patternKind === pattern.value ? ' is-active' : ''}`}
+                  title={pattern.label}
+                  onClick={() => patch('background', { patternKind: pattern.value })}
+                >
+                  {/* 작은 사각형 안에 실제 무늬를 그대로 그려 보인다 */}
+                  <span className="pattern-swatch-box" style={{ background: bg.color }}>
+                    <PatternFill
+                      kind={pattern.value}
+                      scale={pattern.previewScale}
+                      color={bg.patternColor}
+                      angle={bg.patternAngle}
+                      opacity={bg.patternOpacity}
+                    />
+                  </span>
+                  <span className="pattern-swatch-label">{pattern.label}</span>
+                </button>
+              ))}
+            </div>
+          </Field>
+          <ColorField label="바탕색" value={bg.color} onChange={(color) => patch('background', { color })} />
+          <ColorField label="무늬 색" value={bg.patternColor}
+            onChange={(patternColor) => patch('background', { patternColor })} />
+          <NumberSlider label="무늬 크기" value={bg.patternScale} min={25} max={300} unit="%"
+            onChange={(patternScale) => patch('background', { patternScale })} />
+          <NumberSlider label="무늬 각도" value={bg.patternAngle} min={0} max={360} unit="°"
+            onChange={(patternAngle) => patch('background', { patternAngle })} />
+          <NumberSlider label="무늬 불투명도" value={Math.round(bg.patternOpacity * 100)} min={0} max={100} unit="%"
+            onChange={(value) => patch('background', { patternOpacity: value / 100 })} />
+        </>
+      ) : null}
+
+      {bg.type === 'ascii' ? (
+        <>
+          <div className="button-row">
+            <FileButton
+              label={bg.asciiUrl ? '이미지 바꾸기' : '이미지 업로드'}
+              accept="image/*"
+              onPick={async (file) => patch('background', { asciiUrl: await readFileAsDataUrl(file) })}
+            />
+            {bg.asciiUrl ? (
+              <button type="button" className="mini-button" onClick={() => {
+                setAdjustingImage(false);
+                patch('background', { asciiUrl: '' });
+              }}>
+                제거
+              </button>
+            ) : null}
+          </div>
+          {!bg.asciiUrl ? (
+            <Hint>이미지를 올리면 글자로 바꿔 배경에 깝니다. 사진보다 윤곽이 또렷한 그림이 잘 살아납니다.</Hint>
+          ) : null}
+          <ColorField label="바탕색" value={bg.color} onChange={(color) => patch('background', { color })} />
+          <ColorField label="글자 색" value={bg.asciiColor}
+            onChange={(asciiColor) => patch('background', { asciiColor })} />
+          <NumberSlider label="해상도" value={bg.asciiColumns} min={20} max={240} unit="자"
+            hint="가로 글자 수 — 클수록 촘촘하고 자세함"
+            onChange={(asciiColumns) => patch('background', { asciiColumns })} />
+          <NumberSlider label="글자 크기" value={bg.asciiFontSize} min={2} max={40} step={0.5}
+            onChange={(asciiFontSize) => patch('background', { asciiFontSize })} />
+          <NumberSlider label="대비" value={bg.asciiContrast} min={0.2} max={3} step={0.05} unit="배"
+            onChange={(asciiContrast) => patch('background', { asciiContrast })} />
+          <Toggle
+            label="밝기 반전"
+            checked={bg.asciiInvert}
+            onChange={(asciiInvert) => patch('background', { asciiInvert })}
+            hint="어두운 바탕에 밝은 글자로 쓸 때 켜세요"
+          />
+
+          <Field label="위치 · 크기">
+            <div className="button-row">
+              <button
+                type="button"
+                className={adjustingImage ? 'primary-button' : 'mini-button'}
+                disabled={!bg.asciiUrl}
+                onClick={() => setAdjustingImage(!adjustingImage)}
+              >
+                {adjustingImage ? '조절 끝내기' : '드래그로 위치·크기 조절'}
+              </button>
+              <button
+                type="button"
+                className="mini-button"
+                disabled={!bg.asciiUrl}
+                onClick={() => patch('background', { asciiX: 50, asciiY: 50 })}
+              >
+                가운데로
+              </button>
+            </div>
+          </Field>
+          {adjustingImage ? (
+            <Hint>
+              미리보기를 <strong>드래그</strong>해 옮기고, <strong>휠</strong>을 굴려 크기(글자 크기)를 바꾸세요.
+              조절하는 동안에는 본문을 편집할 수 없습니다.
+            </Hint>
+          ) : null}
         </>
       ) : null}
 

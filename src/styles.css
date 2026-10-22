@@ -423,6 +423,22 @@ body {
   box-shadow: 0 2px 24px rgba(10, 12, 18, 0.22);
 }
 .bg-layer { position: absolute; z-index: 0; }
+/* 무늬는 판을 꽉 채운다 */
+.bg-pattern { position: absolute; inset: 0; display: block; }
+/* 아스키 아트 — (left, top) 이 글 상자 가운데가 되게 당겨 놓는다 */
+.bg-ascii {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  white-space: pre;
+  letter-spacing: 0;
+  text-indent: 0;
+  text-align: left;
+  font-weight: 400;
+  pointer-events: none;
+  user-select: none;
+}
 .bg-overlay { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 
 .te-content {
@@ -1097,6 +1113,35 @@ textarea { resize: vertical; line-height: 1.5; }
 
 .button-group { display: flex; gap: 4px; }
 .button-group.wrap { flex-wrap: wrap; }
+/* 배경 종류는 여섯 가지 — 3열 두 줄 */
+.button-group.bg-kinds { display: grid; grid-template-columns: repeat(3, 1fr); }
+
+/* 무늬 견본 — 작은 사각형 안에 실제 무늬를 그려 보인다 */
+.pattern-swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.pattern-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 0;
+  font-family: inherit;
+  color: var(--ui-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.pattern-swatch-box {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid var(--ui-line);
+  border-radius: var(--r-sm);
+}
+.pattern-swatch:hover .pattern-swatch-box { border-color: var(--ui-strong); }
+.pattern-swatch.is-active .pattern-swatch-box { border-color: var(--ui-accent); box-shadow: 0 0 0 1px var(--ui-accent); }
+.pattern-swatch-label { font-size: 11px; text-align: center; }
+.pattern-swatch.is-active .pattern-swatch-label { color: var(--ui-text); font-weight: 700; }
 .button-group.compact button { padding: 4px 8px; font-size: 11px; }
 .button-group button {
   flex: 1 1 0;

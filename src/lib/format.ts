@@ -480,25 +480,6 @@ export function pageBreakCount(root: HTMLElement | null): number {
   return root ? root.querySelectorAll('[data-te-page-break]').length : 0;
 }
 
-/** 본문에 적용된 모든 인라인 서식을 벗겨낸다 (역할 span 은 유지). */
-export function stripAllFormatting(root: HTMLElement): void {
-  root.querySelectorAll<HTMLElement>('.te-rule, [data-te-label]').forEach((el) => el.remove());
-  root.querySelectorAll<HTMLElement>(
-    'b, strong, i, em, u, s, strike, font, span.te-bar,'
-    + ' .te-bubble, .te-bubble-text, .te-script, .te-script-text',
-  ).forEach((el) => {
-    const parent = el.parentNode;
-    if (!parent) return;
-    while (el.firstChild) parent.insertBefore(el.firstChild, el);
-    parent.removeChild(el);
-  });
-  root.querySelectorAll<HTMLElement>('span[style]').forEach((el) => {
-    if (el.dataset.teRole) return;
-    el.removeAttribute('style');
-  });
-  root.normalize();
-}
-
 /** 선택 영역이 속한 역할을 알아낸다. 역할 span 밖이면 서술로 본다. */
 export function selectionRole(root: HTMLElement | null): Role {
   if (!hasSelectionInside(root)) return 'narration';

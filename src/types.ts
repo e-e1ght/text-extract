@@ -34,7 +34,9 @@ export interface RoleColors {
   barColor: string;
 }
 
-export type BackgroundType = 'solid' | 'gradient' | 'image' | 'video';
+export type BackgroundType = 'solid' | 'gradient' | 'image' | 'video' | 'pattern' | 'ascii';
+
+export type PatternKind = 'dots' | 'check' | 'stars';
 
 export interface Background {
   type: BackgroundType;
@@ -51,6 +53,25 @@ export interface Background {
   imageX: number;
   imageY: number;
   videoUrl: string;
+  /* 패턴 — 바탕은 color, 그 위에 무늬를 깐다 */
+  patternKind: PatternKind;
+  /** 무늬 크기 배율 (%). 무늬마다 기본 크기가 달라 배율로 맞춘다 */
+  patternScale: number;
+  patternColor: string;
+  patternAngle: number;
+  patternOpacity: number;
+  /* 아스키 아트 — 바탕은 color */
+  asciiUrl: string;
+  asciiColor: string;
+  /** 가로 글자 수. 클수록 촘촘하고 자세하다 */
+  asciiColumns: number;
+  asciiFontSize: number;
+  asciiContrast: number;
+  /** 밝은 곳을 촘촘한 글자로 (어두운 바탕에 밝은 글자일 때) */
+  asciiInvert: boolean;
+  /** 아스키 아트 가운데의 위치 (%) — 드래그로 조절한다 */
+  asciiX: number;
+  asciiY: number;
   overlayColor: string;
   overlayOpacity: number;
   blur: number;
@@ -189,6 +210,8 @@ export interface Settings {
   sidebarSide: SidebarSide;
   /** 앱 화면(사이드바·작업 영역) 테마. 결과 이미지와는 무관하다. */
   appTheme: 'dark' | 'light';
+  /** 사용자가 직접 테마를 고른 적이 있는지. 없으면 기본(라이트)을 따른다 */
+  themeChosen: boolean;
   sidebarWidth: number;
   /** 지금 열려 있는 도구 패널. null 이면 모두 닫힘 */
   activePanel: string | null;
