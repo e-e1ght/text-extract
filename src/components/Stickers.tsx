@@ -1,6 +1,61 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { STICKER_LOOK } from '../defaults';
+import { outlinedSticker } from '../lib/stickerOutline';
 import { useStore } from '../store';
 import type { Sticker } from '../types';
+
+/** '#rrggbb' + 불투명도 → rgba() */
+function withAlpha(hex: string, alpha: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+/**
+ * 스티커 그림 — 외곽선을 두르면 캔버스로 만든 그림으로 바꿔 끼운다(lib/stickerOutline).
+ * 외곽선만큼 그림이 커지므로 그만큼 바깥으로 넓혀 그려, 스티커 자리·크기는 그대로 둔다.
+ * 그림자는 drop-shadow 라 네모가 아니라 외곽선까지 포함한 그림 모양을 따라 진다.
+ */
+function StickerImage({ sticker }: { sticker: Sticker }) {
+  const look = { ...STICKER_LOOK, ...sticker };
+  const ref = useRef<HTMLImageElement | null>(null);
+  const [outlined, setOutlined] = useState<{ key: string; src: string } | null>(null);
+  const width = look.outline ? look.outlineWidth : 0;
+  const key = `${look.outlineColor}|${width}|${sticker.width}|${sticker.url.length}`;
+
+  useEffect(() => {
+    if (!width) return undefined;
+    let alive = true;
+    // 크기 손잡이를 끄는 동안 매번 다시 그리지 않게 잠깐 기다린다 (그동안은 예전 그림을 늘려 쓴다)
+    const timer = window.setTimeout(() => {
+      const box = ref.current?.parentElement;
+      if (!box) return;
+      outlinedSticker(sticker.url, look.outlineColor, width, box.offsetWidth)
+        .then((src) => { if (alive) setOutlined({ key, src }); })
+        .catch(() => {});
+    }, outlined ? 160 : 0);
+    return () => { alive = false; window.clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  const useOutline = width > 0 && outlined;
+  const d = look.shadowDistance / Math.SQRT2;
+  return (
+    <img
+      ref={ref}
+      src={useOutline ? outlined.src : sticker.url}
+      alt=""
+      draggable={false}
+      style={{
+        ...(useOutline ? { width: `calc(100% + ${width * 2}px)`, margin: -width, maxWidth: 'none' } : null),
+        filter: look.shadow
+          ? `drop-shadow(${d}px ${d}px ${look.shadowBlur}px ${withAlpha(look.shadowColor, look.shadowOpacity)})`
+          : undefined,
+      }}
+    />
+  );
+}
 
 /**
  * 본문 위에 얹는 이미지.
@@ -83,7 +138,7 @@ export function Stickers({ zoom }: { zoom: number }) {
           }}
           onPointerCancel={() => { drag.current = null; }}
         >
-          <img src={sticker.url} alt="" draggable={false} />
+          <StickerImage sticker={sticker} />
           {selectedSticker === sticker.id ? (
             <>
               <span className="sticker-outline" data-export-ignore="true" />

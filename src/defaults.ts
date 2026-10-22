@@ -202,3 +202,15 @@ export const DEFAULT_SETTINGS: Settings = {
 
 /** 미리보기는 빈 상태로 시작한다. */
 export const SAMPLE_CONTENT = '';
+
+/** 스티커 외곽선·그림자의 기본값 (예전에 올린 스티커에는 이 값들이 없다) */
+export const STICKER_LOOK = {
+  outline: false,
+  outlineColor: '#ffffff',
+  outlineWidth: 6,
+  shadow: false,
+  shadowColor: '#000000',
+  shadowOpacity: 0.35,
+  shadowDistance: 6,
+  shadowBlur: 8,
+};

@@ -172,6 +172,16 @@ export interface Sticker {
   width: number;
   rotation: number;
   opacity: number;
+  /** 그림 모양을 따라 두르는 외곽선 (예전 스티커에는 없다 — STICKER_LOOK 으로 채운다) */
+  outline?: boolean;
+  outlineColor?: string;
+  outlineWidth?: number;
+  /** 그림 모양을 따라 지는 그림자. 거리만큼 오른쪽 아래로 밀리고, 퍼짐만큼 번진다 */
+  shadow?: boolean;
+  shadowColor?: string;
+  shadowOpacity?: number;
+  shadowDistance?: number;
+  shadowBlur?: number;
 }
 
 /** 본문 위·아래·왼쪽·오른쪽에 붙는 이미지 칸 */

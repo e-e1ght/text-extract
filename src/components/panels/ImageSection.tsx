@@ -1,7 +1,8 @@
 import { alignImage, insertImage, selectionImage, type ImageAlign } from '../../lib/format';
 import { readFileAsDataUrl } from '../../lib/exporters';
 import { useStore } from '../../store';
-import { Field, FileButton, Hint, NumberSlider } from '../ui';
+import { STICKER_LOOK } from '../../defaults';
+import { ColorField, Field, FileButton, Hint, NumberSlider, Toggle } from '../ui';
 
 /** 본문 속 이미지와 본문 위에 얹는 스티커. 이미지 탭 맨 위에 둔다. */
 export function ImageSection({ editorRoot }: { editorRoot: HTMLElement | null }) {
@@ -131,6 +132,10 @@ export function ImageSection({ editorRoot }: { editorRoot: HTMLElement | null })
             unit="%"
             onChange={(value) => updateSticker(pickedSticker.id, { opacity: value / 100 })}
           />
+          <StickerLook
+            sticker={{ ...STICKER_LOOK, ...pickedSticker }}
+            onChange={(change) => updateSticker(pickedSticker.id, change)}
+          />
         </>
       ) : null}
       {settings.stickers.length > 0 ? (
@@ -138,6 +143,38 @@ export function ImageSection({ editorRoot }: { editorRoot: HTMLElement | null })
           스티커는 미리보기에서 바로 끌어 옮기고, 고른 뒤 오른쪽 아래 손잡이로 크기를,
           위쪽 손잡이로 각도를 바꿉니다. (Shift 를 누르면 15도 단위, 더블클릭하면 0도)
         </Hint>
+      ) : null}
+    </>
+  );
+}
+
+/** 고른 스티커의 외곽선·그림자 */
+function StickerLook({ sticker: s, onChange }: {
+  sticker: typeof STICKER_LOOK;
+  onChange: (change: Partial<typeof STICKER_LOOK>) => void;
+}) {
+  return (
+    <>
+      <Toggle label="스티커 외곽선" hint="그림 모양을 따라" checked={s.outline}
+        onChange={(outline) => onChange({ outline })} />
+      {s.outline ? (
+        <>
+          <ColorField label="외곽선 색" value={s.outlineColor} onChange={(outlineColor) => onChange({ outlineColor })} />
+          <NumberSlider label="외곽선 두께" value={s.outlineWidth} min={1} max={30}
+            onChange={(outlineWidth) => onChange({ outlineWidth })} />
+        </>
+      ) : null}
+      <Toggle label="스티커 그림자" checked={s.shadow} onChange={(shadow) => onChange({ shadow })} />
+      {s.shadow ? (
+        <>
+          <ColorField label="그림자 색" value={s.shadowColor} onChange={(shadowColor) => onChange({ shadowColor })} />
+          <NumberSlider label="그림자 불투명도" value={Math.round(s.shadowOpacity * 100)} min={0} max={100} unit="%"
+            onChange={(value) => onChange({ shadowOpacity: value / 100 })} />
+          <NumberSlider label="그림자 거리" hint="오른쪽 아래로" value={s.shadowDistance} min={0} max={60}
+            onChange={(shadowDistance) => onChange({ shadowDistance })} />
+          <NumberSlider label="그림자 퍼짐" hint="클수록 부드럽게 번짐" value={s.shadowBlur} min={0} max={60}
+            onChange={(shadowBlur) => onChange({ shadowBlur })} />
+        </>
       ) : null}
     </>
   );
