@@ -9,8 +9,8 @@ import {
 } from '../lib/format';
 import { fontFamilyOf } from '../lib/fonts';
 import { rememberColor } from '../lib/recentColors';
-import { RecentSwatches } from './ui';
 import { IconClose, IconEdit } from './icons';
+import { ColorPicker } from './ColorPicker';
 import type { Role } from '../lib/parse';
 import { useStore } from '../store';
 
@@ -31,7 +31,9 @@ const ROLE_LABEL: Record<Role, string> = {
   paren: '괄호 안',
 };
 
-const TEXT_SWATCHES = ['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8', '#8b5a2b', '#8a8a95'];
+const TEXT_SWATCHES = ['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8'];
+
+const META_LABEL = { title: '제목', subtitle: '부제목', author: '제작자' } as const;
 
 type Panel =
   | 'none' | 'color' | 'highlight' | 'size' | 'character'
@@ -123,6 +125,10 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
   const [bubbleSpeaker, setBubbleSpeaker] = useState('');
   /** 커서가 이미 말풍선/대본 안에 있으면 '만들기' 대신 '바꾸기·풀기' 를 보여준다 */
   const [inBlock, setInBlock] = useState<BlockKind | null>(null);
+  /** 지금 고른 글자의 색 — 피커가 여기서 시작한다 */
+  const [pickedColor, setPickedColor] = useState('#000000');
+  /** 제목·부제목·제작자를 골랐으면 그 종류 (본문이 아니라 설정의 색·크기를 바꾼다) */
+  const [metaTarget, setMetaTarget] = useState<'title' | 'subtitle' | 'author' | null>(null);
   /** 고른 곳이 이미 가려져 있으면 그 방식 — '가리기 풀기' 를 보여 줄지 정한다 */
   const [redaction, setRedaction] = useState<RedactKind | null>(null);
 
@@ -132,6 +138,21 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
     if (!hasSelectionInside(editorRoot)) {
       // 패널의 입력칸·드롭다운을 만지는 중이면 본문 선택이 잠시 풀린다 — 그때는 그대로 둔다
       if (popupRef.current?.contains(document.activeElement)) return;
+      /*
+       * 제목·부제목·제작자는 본문 밖이라 따로 본다. 그 안을 드래그하면 그 줄 전체가 대상이다
+       * (본문처럼 일부만 칠하지는 않는다 — 제목 글은 패널의 입력칸이 원본이라서).
+       */
+      const metaSel = window.getSelection();
+      const anchor = metaSel && !metaSel.isCollapsed ? metaSel.anchorNode : null;
+      const metaEl = (anchor?.nodeType === Node.ELEMENT_NODE ? anchor as Element : anchor?.parentElement)
+        ?.closest('.meta-title, .meta-subtitle, .meta-author');
+      if (metaEl) {
+        setMetaTarget(metaEl.classList.contains('meta-title') ? 'title'
+          : metaEl.classList.contains('meta-subtitle') ? 'subtitle' : 'author');
+        setHasTarget(true);
+        return;
+      }
+      setMetaTarget(null);
       setHasTarget(false);
       return;
     }
@@ -146,6 +167,13 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
     setInBlock(block ? (block.classList.contains('te-script') ? 'script' : 'bubble') : null);
     if (block?.dataset.teSpeaker) setBubbleSpeaker(block.dataset.teSpeaker);
     setRedaction(redactionAtSelection(editorRoot));
+    setMetaTarget(null);
+    // 피커가 '지금 그 글자의 색' 에서 시작하도록 읽어 둔다
+    if (sel && sel.rangeCount > 0) {
+      const start = sel.getRangeAt(0).startContainer;
+      const el = start.nodeType === Node.ELEMENT_NODE ? start as Element : start.parentElement;
+      if (el) setPickedColor(getComputedStyle(el).color);
+    }
   }, [editorRoot]);
 
   /*
@@ -235,6 +263,11 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
     rememberColor(color);
     applyBar(editorRoot, color);
   };
+
+  const roleColor = role === 'dialogue' ? settings.roles.dialogue
+    : role === 'name' ? settings.roles.name
+      : role === 'emph' || role === 'mark' ? settings.roles.emphasis
+        : settings.roles.narration;
 
   const baseSize = role === 'dialogue' ? settings.typography.dialogueFontSize : settings.typography.fontSize;
   const isCharacter = Boolean(settings.characters[picked]);
@@ -347,11 +380,35 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
         </button>
       </div>
       <div className="edit-panel-target">
-        {hasTarget
-          ? (pickedImage ? '고른 이미지' : `고른 글: ${picked.length > 22 ? `${picked.slice(0, 22)}…` : picked}`)
-          : '본문에서 글을 드래그해 고르세요'}
+        {!hasTarget ? '본문에서 글을 드래그해 고르세요'
+          : metaTarget ? `고른 것: ${META_LABEL[metaTarget]} 전체`
+            : pickedImage ? '고른 이미지'
+              : `고른 글: ${picked.length > 22 ? `${picked.slice(0, 22)}…` : picked}`}
       </div>
       {/* 고른 글이 없으면 통째로 잠근다 — 무엇에 적용될지 모르는 채 누르지 않게 */}
+      {metaTarget ? (
+        <div className="edit-panel-body">
+          <div className="ep-label">색</div>
+          <ColorPicker
+            value={settings.meta[`${metaTarget}Color`]}
+            onPick={(color) => { rememberColor(color); patch('meta', { [`${metaTarget}Color`]: color }); }}
+            swatches={TEXT_SWATCHES}
+          />
+          <div className="ep-label">크기</div>
+          <div className="popup-row">
+            <input
+              type="number"
+              className="cp-code"
+              style={{ width: 70 }}
+              min={8}
+              max={96}
+              value={settings.meta[`${metaTarget}Size`]}
+              onChange={(event) => patch('meta', { [`${metaTarget}Size`]: Math.max(8, Number(event.target.value) || 8) })}
+            />
+            <span className="popup-note">px</span>
+          </div>
+        </div>
+      ) : (
       <fieldset className="edit-panel-body" disabled={!hasTarget}>
       {/*
         포토샵 문자 패널처럼 줄마다 한 묶음: 서식 / 글자 / 묶기.
@@ -410,43 +467,28 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
               선택 영역만
             </button>
           </div>
-          <div className="popup-row">
-            {TEXT_SWATCHES.map((color) => (
-              <button
-                key={color}
-                type="button"
-                className="swatch"
-                style={{ background: color }}
-                onClick={() => setColor(color)}
-                title={color}
-              />
-            ))}
-            <input type="color" className="swatch-picker" onChange={(e) => setColor(e.target.value)} />
-          </div>
-          <RecentSwatches compact onPick={setColor} />
+          <ColorPicker
+            value={scope === 'role' ? roleColor : pickedColor}
+            // 코드 입력칸을 거치면 본문 선택이 풀린다 — 되살린 뒤 적용한다
+            onPick={(color) => withSelection(() => setColor(color))}
+            swatches={TEXT_SWATCHES}
+          />
           <p className="popup-note">
             {scope === 'role'
-              ? '패널의 색상 설정과 함께 바뀝니다.'
+              ? '같은 역할의 글이 모두 이 색으로 바뀝니다 (캐릭터 색이 정해진 대사·이름은 그대로).'
               : '이 영역에만 적용되며, 패널 색상보다 우선합니다.'}
           </p>
         </div>
       ) : null}
 
       {panel === 'highlight' ? (
-        <div className="popup-sub">
-          {HIGHLIGHT_SWATCHES.map((color) => (
-            <button
-              key={color}
-              type="button"
-              className="swatch"
-              style={{ background: color }}
-              onClick={() => highlight(color)}
-              title={color}
-            />
-          ))}
-          <input type="color" className="swatch-picker" onChange={(e) => highlight(e.target.value)} />
-          <button type="button" className="popup-btn slim" onClick={() => clearHighlight(editorRoot)}>없음</button>
-          <RecentSwatches compact onPick={highlight} />
+        <div className="popup-sub popup-sub-column">
+          <ColorPicker value="#fff2a8" onPick={(color) => withSelection(() => highlight(color))}
+            swatches={HIGHLIGHT_SWATCHES.slice(0, 5)} />
+          <div className="popup-row">
+            <button type="button" className="popup-btn slim"
+              onClick={() => withSelection(() => clearHighlight(editorRoot))}>형광 지우기</button>
+          </div>
         </div>
       ) : null}
 
@@ -517,24 +559,8 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
 
       {panel === 'bar' ? (
         <div className="popup-sub popup-sub-column">
-          <div className="popup-row">
-            {BAR_SWATCHES.map((color) => (
-              <button
-                key={color}
-                type="button"
-                className="swatch"
-                style={{ background: color }}
-                title={color}
-                onClick={() => bar(color)}
-              />
-            ))}
-            <input
-              type="color"
-              className="swatch-picker"
-              onChange={(event) => bar(event.target.value)}
-            />
-          </div>
-          <RecentSwatches compact onPick={bar} />
+          <ColorPicker value={BAR_SWATCHES[0]} onPick={(color) => withSelection(() => bar(color))}
+            swatches={BAR_SWATCHES.slice(0, 5)} />
           <p className="popup-note">
             {barAtSelection(editorRoot)
               ? '이미 세로선이 있어 색만 바뀝니다.'
@@ -676,6 +702,7 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
         </div>
       ) : null}
       </fieldset>
+      )}
       <div
         className="edit-panel-resize"
         title="끌어서 크기 조절 · 두 번 누르면 기본 크기"

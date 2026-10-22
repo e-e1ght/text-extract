@@ -2,7 +2,7 @@ import { useRef, type ReactNode } from 'react';
 import { useStore } from '../store';
 import {
   IconBubble, IconClose, IconFrame, IconHeading, IconImage,
-  IconPalette, IconSave, IconText,
+  IconQuote, IconSave, IconText,
 } from './icons';
 import { TextPanel } from './panels/TextPanel';
 import { ColorPanel } from './panels/ColorPanel';
@@ -18,7 +18,8 @@ export type PanelId =
 const RAIL: Array<{ id: PanelId; label: string; icon: ReactNode }> = [
   { id: 'meta', label: '제목 · 제작자', icon: <IconHeading /> },
   { id: 'text', label: '본문', icon: <IconText /> },
-  { id: 'color', label: '색상', icon: <IconPalette /> },
+  // 글자 색은 편집 패널로 옮겨 갔다 — 남은 것은 대사·서술 구분과 그 모양새
+  { id: 'color', label: '대사 · 서술', icon: <IconQuote /> },
   { id: 'bubble', label: '말풍선 · 캐릭터', icon: <IconBubble /> },
   { id: 'background', label: '이미지', icon: <IconImage /> },
   { id: 'layout', label: '내지 옵션', icon: <IconFrame /> },

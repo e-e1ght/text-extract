@@ -1080,6 +1080,47 @@ body {
       var(--ui-strong) 72% 79%, transparent 79%);
 }
 
+/* 포토샵식 색 고르기 — 채도·밝기 사각형, 색상 막대, 코드 */
+.cp { display: flex; flex-direction: column; gap: 6px; }
+.cp-sv {
+  position: relative;
+  height: 112px;
+  border-radius: 2px;
+  cursor: crosshair;
+  touch-action: none;
+  background-image: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent) !important;
+  background-blend-mode: normal;
+}
+.cp-sv-thumb, .cp-hue-thumb {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+.cp-sv-thumb { width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%); }
+.cp-hue {
+  position: relative;
+  height: 12px;
+  border-radius: 2px;
+  cursor: ew-resize;
+  touch-action: none;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+.cp-hue-thumb { top: -2px; bottom: -2px; width: 6px; border-radius: 2px; transform: translateX(-50%); }
+.cp-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.cp-now { width: 22px; height: 22px; border-radius: 2px; border: 1px solid var(--ui-popup-line); flex: 0 0 auto; }
+.cp-code {
+  width: 70px;
+  height: 22px;
+  padding: 0 5px;
+  font: 11px ui-monospace, Menlo, Consolas, monospace;
+  color: var(--ui-text);
+  background: var(--ui-popup-scope-bg);
+  border: 1px solid var(--ui-popup-divider);
+  border-radius: 2px;
+}
+.ep-label { font-size: 10px; font-weight: 700; color: var(--ui-muted); letter-spacing: 0.04em; }
+
 /* 줄마다 한 묶음 — 줄 사이는 가는 선 */
 /* .popup-main 의 가운데 맞춤보다 앞서도록 두 겹으로 잡는다 — 포토샵처럼 왼쪽부터 꽉 차게 */
 .popup-main.ep-rows { flex-direction: column; align-items: stretch; gap: 0; }

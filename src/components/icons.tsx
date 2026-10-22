@@ -16,8 +16,8 @@ import {
   faHeading,
   faImage,
   faMoon,
-  faPalette,
   faPenToSquare,
+  faQuoteLeft,
   faRotateLeft,
   faRotateRight,
   faSun,
@@ -45,7 +45,6 @@ function Glyph({ icon, size = 16 }: { icon: IconDefinition; size?: number }) {
 
 export const IconHeading = ({ size }: IconProps) => <Glyph icon={faHeading} size={size} />;
 export const IconText = ({ size }: IconProps) => <Glyph icon={faAlignLeft} size={size} />;
-export const IconPalette = ({ size }: IconProps) => <Glyph icon={faPalette} size={size} />;
 export const IconBubble = ({ size }: IconProps) => <Glyph icon={faCommentDots} size={size} />;
 export const IconImage = ({ size }: IconProps) => <Glyph icon={faImage} size={size} />;
 export const IconFrame = ({ size }: IconProps) => <Glyph icon={faCropSimple} size={size} />;
@@ -55,4 +54,5 @@ export const IconUndo = ({ size }: IconProps) => <Glyph icon={faRotateLeft} size
 export const IconRedo = ({ size }: IconProps) => <Glyph icon={faRotateRight} size={size} />;
 export const IconSun = ({ size }: IconProps) => <Glyph icon={faSun} size={size} />;
 export const IconMoon = ({ size }: IconProps) => <Glyph icon={faMoon} size={size} />;
+export const IconQuote = ({ size }: IconProps) => <Glyph icon={faQuoteLeft} size={size} />;
 export const IconEdit = ({ size }: IconProps) => <Glyph icon={faPenToSquare} size={size} />;

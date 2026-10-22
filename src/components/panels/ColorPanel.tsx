@@ -1,5 +1,5 @@
 import { useStore } from '../../store';
-import { ColorField, Hint, Toggle } from '../ui';
+import { Hint, Toggle } from '../ui';
 
 /** 역할(서술·대사·이름·강조)별 공통 색. 캐릭터별 색은 말풍선 패널에서 다룬다. */
 export function ColorPanel() {
@@ -14,10 +14,6 @@ export function ColorPanel() {
         onChange={(enabled) => patch('roles', { enabled })}
         hint='따옴표 안은 대사, *…* 는 강조 서술, ( ) 는 곁말. 끄면 입력하는 글도 구분하지 않습니다'
       />
-      <ColorField label="서술 색" value={roles.narration} onChange={(narration) => patch('roles', { narration })} />
-      <ColorField label="대사 색" value={roles.dialogue} onChange={(dialogue) => patch('roles', { dialogue })} />
-      <ColorField label="캐릭터 이름 색" value={roles.name} onChange={(name) => patch('roles', { name })} />
-      <ColorField label="강조 서술 색" value={roles.emphasis} onChange={(emphasis) => patch('roles', { emphasis })} />
       <Toggle label="대사 기울임" checked={roles.dialogueItalic}
         onChange={(dialogueItalic) => patch('roles', { dialogueItalic })} />
       <Toggle label="강조 서술 기울임" checked={roles.emphasisItalic}
@@ -37,8 +33,12 @@ export function ColorPanel() {
       />
 
       <Hint>
+        <strong>글자 색</strong>은 본문을 드래그한 뒤 편집 패널의 <strong>색</strong>에서 고릅니다.
+        '대사 전체' 처럼 같은 역할 전체를 한 번에 바꿀 수도, 고른 부분만 바꿀 수도 있습니다.
+      </Hint>
+      <Hint>
         캐릭터마다 다른 색을 쓰려면 <strong>말풍선</strong> 패널에서 캐릭터를 추가하세요.
-        거기서 정한 색이 여기 공통 색보다 우선합니다.
+        캐릭터에 정한 색은 역할 전체 색보다 우선합니다.
       </Hint>
     </>
   );
