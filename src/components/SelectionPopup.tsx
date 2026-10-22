@@ -100,8 +100,12 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
   const [launcher, setLauncher] = usePersisted('te-edit-launcher', () => ({
     x: window.innerWidth - 120, y: window.innerHeight - 150,
   }));
-  const [box, setBox] = usePersisted('te-edit-panel', () => ({
-    x: Math.max(16, window.innerWidth - 680), y: 110, w: 620, h: 300,
+  /*
+   * w·h 가 0 이면 '내용에 맞춤'. 크기 손잡이로 줄였을 때만 값이 생긴다 (작은 화면용).
+   * 예전(v1)에는 620×300 으로 시작해 너무 컸다 — 열쇠를 바꿔 그 값을 버린다.
+   */
+  const [box, setBox] = usePersisted('te-edit-panel-v2', () => ({
+    x: Math.max(16, window.innerWidth - 340), y: 110, w: 0, h: 0, collapsed: false,
   }));
   const [active, setActive] = useState<Record<string, boolean>>({});
   const [panel, setPanel] = useState<Panel>('none');
@@ -176,11 +180,14 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
     const sx = event.clientX;
     const sy = event.clientY;
     const start = boxRef.current;
+    // 내용에 맞춘 상태에서 시작하면 지금 보이는 크기에서부터 줄인다
+    const w0 = popupRef.current?.offsetWidth ?? 268;
+    const h0 = popupRef.current?.offsetHeight ?? 160;
     const move = (e: PointerEvent) => {
       setBox({
         ...boxRef.current,
-        w: Math.round(Math.min(window.innerWidth - start.x - 8, Math.max(280, start.w + e.clientX - sx))),
-        h: Math.round(Math.min(window.innerHeight - start.y - 8, Math.max(120, start.h + e.clientY - sy))),
+        w: Math.round(Math.min(window.innerWidth - start.x - 8, Math.max(180, w0 + e.clientX - sx))),
+        h: Math.round(Math.min(window.innerHeight - start.y - 8, Math.max(60, h0 + e.clientY - sy))),
       });
     };
     const up = () => {
@@ -257,6 +264,18 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
     setPanel('none');
   };
 
+  /** 세부 설정을 펼치는 단추 — 다시 누르면 접힌다 */
+  const tab = (id: Panel, label: string, title: string) => (
+    <button
+      type="button"
+      title={title}
+      className={`popup-btn ${panel === id ? 'is-active' : ''}`}
+      onClick={() => setPanel((v) => (v === id ? 'none' : id))}
+    >
+      {label}
+    </button>
+  );
+
   const launcherPos = clampToViewport(launcher.x, launcher.y, 90, 40);
   const panelPos = clampToViewport(box.x, box.y, box.w, box.h);
 
@@ -286,8 +305,13 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
     {launcherButton}
     <div
       ref={popupRef}
-      className={`edit-panel${hasTarget ? '' : ' is-idle'}`}
-      style={{ left: panelPos.x, top: panelPos.y, width: box.w, height: box.h }}
+      className={`edit-panel${hasTarget ? '' : ' is-idle'}${box.collapsed ? ' is-collapsed' : ''}`}
+      style={{
+        left: panelPos.x,
+        top: panelPos.y,
+        width: box.w || undefined,
+        height: box.collapsed ? undefined : (box.h || undefined),
+      }}
       /*
        * 버튼을 누를 때 선택이 풀리지 않도록 mousedown 을 막는다.
        * 다만 드롭다운·입력칸까지 막으면 아예 열리지 않으므로 그것들은 그대로 둔다.
@@ -303,123 +327,69 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
         className="edit-panel-head"
         onPointerDown={(event) => {
           if ((event.target as HTMLElement).closest('button')) return;
-          dragFrom(event, panelPos, { w: box.w, h: box.h }, (pos) => setBox({ ...boxRef.current, ...pos }));
+          const node = popupRef.current;
+          dragFrom(event, panelPos, { w: node?.offsetWidth ?? 268, h: node?.offsetHeight ?? 40 },
+            (pos) => setBox({ ...boxRef.current, ...pos }));
         }}
       >
         <span className="edit-panel-title">편집</span>
-        <span className="edit-panel-target">
-          {hasTarget
-            ? (pickedImage ? '고른 이미지' : `고른 글: ${picked.length > 18 ? `${picked.slice(0, 18)}…` : picked}`)
-            : '본문에서 글을 드래그해 고르세요'}
-        </span>
-        <button type="button" className="edit-panel-close" title="닫기" onClick={() => setOpen({ value: false })}>
-          <IconClose />
+        <span className="ep-spacer" />
+        <button
+          type="button"
+          className="edit-panel-close"
+          title={box.collapsed ? '펼치기' : '접기'}
+          onClick={() => setBox({ ...boxRef.current, collapsed: !box.collapsed })}
+        >
+          {box.collapsed ? '▸' : '▾'}
         </button>
+        <button type="button" className="edit-panel-close" title="닫기" onClick={() => setOpen({ value: false })}>
+          <IconClose size={11} />
+        </button>
+      </div>
+      <div className="edit-panel-target">
+        {hasTarget
+          ? (pickedImage ? '고른 이미지' : `고른 글: ${picked.length > 22 ? `${picked.slice(0, 22)}…` : picked}`)
+          : '본문에서 글을 드래그해 고르세요'}
       </div>
       {/* 고른 글이 없으면 통째로 잠근다 — 무엇에 적용될지 모르는 채 누르지 않게 */}
       <fieldset className="edit-panel-body" disabled={!hasTarget}>
-      <div className="popup-main">
-        {INLINE_BUTTONS.map((button) => (
-          <button
-            key={button.command}
-            type="button"
-            title={button.title}
-            className={`popup-btn cmd-${button.command} ${active[button.command] ? 'is-active' : ''}`}
-            onClick={() => { toggleInline(button.command); refreshActive(); }}
-          >
-            {button.label}
+      {/*
+        포토샵 문자 패널처럼 줄마다 한 묶음: 서식 / 글자 / 묶기.
+        세부 설정은 그 아래에 펼쳐진다.
+      */}
+      <div className="popup-main ep-rows">
+        <div className="ep-row">
+          {INLINE_BUTTONS.map((button) => (
+            <button
+              key={button.command}
+              type="button"
+              title={button.title}
+              className={`popup-btn cmd-${button.command} ${active[button.command] ? 'is-active' : ''}`}
+              onClick={() => { toggleInline(button.command); refreshActive(); }}
+            >
+              {button.label}
+            </button>
+          ))}
+          <span className="ep-spacer" />
+          <button type="button" title="서식 지우기" className="popup-btn"
+            onClick={() => { removeFormatting(editorRoot); refreshActive(); }}>
+            지우기
           </button>
-        ))}
-        <span className="popup-divider" />
-        <button
-          type="button"
-          title="글자 색"
-          className={`popup-btn ${panel === 'color' ? 'is-active' : ''}`}
-          onClick={() => setPanel((v) => (v === 'color' ? 'none' : 'color'))}
-        >
-          색
-        </button>
-        <button
-          type="button"
-          title="하이라이트"
-          className={`popup-btn ${panel === 'highlight' ? 'is-active' : ''}`}
-          onClick={() => setPanel((v) => (v === 'highlight' ? 'none' : 'highlight'))}
-        >
-          형광
-        </button>
-        <button
-          type="button"
-          title="글자 크기"
-          className={`popup-btn ${panel === 'size' ? 'is-active' : ''}`}
-          onClick={() => setPanel((v) => (v === 'size' ? 'none' : 'size'))}
-        >
-          크기
-        </button>
-        <button
-          type="button"
-          title="글꼴"
-          className={`popup-btn ${panel === 'font' ? 'is-active' : ''}`}
-          onClick={() => setPanel((v) => (v === 'font' ? 'none' : 'font'))}
-        >
-          글꼴
-        </button>
-        <button
-          type="button"
-          title="왼쪽 세로선"
-          className={`popup-btn ${panel === 'bar' ? 'is-active' : ''}`}
-          onClick={() => setPanel((v) => (v === 'bar' ? 'none' : 'bar'))}
-        >
-          ▌
-        </button>
-        {pickedImage ? (
-          <button
-            type="button"
-            title="이미지 크기·정렬"
-            className={`popup-btn ${panel === 'image' ? 'is-active' : ''}`}
-            onClick={() => setPanel((v) => (v === 'image' ? 'none' : 'image'))}
-          >
-            이미지
-          </button>
-        ) : null}
-        <span className="popup-divider" />
-        <button
-          type="button"
-          title="말풍선으로 만들기"
-          className={`popup-btn ${panel === 'bubble' ? 'is-active' : ''}`}
-          onClick={() => setPanel((v) => (v === 'bubble' ? 'none' : 'bubble'))}
-        >
-          말풍선
-        </button>
-        <button
-          type="button"
-          title="대본 형식으로 만들기 (이름과 대사를 나란히)"
-          className={`popup-btn ${panel === 'script' ? 'is-active' : ''}`}
-          onClick={() => setPanel((v) => (v === 'script' ? 'none' : 'script'))}
-        >
-          대본
-        </button>
-        <span className="popup-divider" />
-        <button
-          type="button"
-          title="선택한 글자를 캐릭터로 지정"
-          className={`popup-btn ${panel === 'character' ? 'is-active' : ''}`}
-          onClick={() => setPanel((v) => (v === 'character' ? 'none' : 'character'))}
-        >
-          캐릭터
-        </button>
-        <span className="popup-divider" />
-        <button
-          type="button"
-          title="고른 글을 검은 막대나 흐림으로 가리기"
-          className={`popup-btn ${panel === 'redact' ? 'is-active' : ''}`}
-          onClick={() => setPanel((v) => (v === 'redact' ? 'none' : 'redact'))}
-        >
-          가리기
-        </button>
-        <button type="button" title="서식 지우기" className="popup-btn"
-          onClick={() => { removeFormatting(editorRoot); refreshActive(); }}>
-          지우기
-        </button>
+        </div>
+        <div className="ep-row">
+          {tab('color', '색', '글자 색')}
+          {tab('highlight', '형광', '하이라이트')}
+          {tab('size', '크기', '글자 크기')}
+          {tab('font', '글꼴', '글꼴')}
+          {tab('bar', '▌', '왼쪽 세로선')}
+          {pickedImage ? tab('image', '이미지', '이미지 크기·정렬') : null}
+        </div>
+        <div className="ep-row">
+          {tab('bubble', '말풍선', '말풍선으로 만들기')}
+          {tab('script', '대본', '대본 형식으로 만들기 (이름과 대사를 나란히)')}
+          {tab('character', '캐릭터', '선택한 글자를 캐릭터로 지정')}
+          {tab('redact', '가리기', '고른 글을 검은 막대나 흐림으로 가리기')}
+        </div>
       </div>
 
       {panel === 'color' ? (
@@ -706,7 +676,12 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
         </div>
       ) : null}
       </fieldset>
-      <div className="edit-panel-resize" title="끌어서 크기 조절" onPointerDown={startResize} />
+      <div
+        className="edit-panel-resize"
+        title="끌어서 크기 조절 · 두 번 누르면 기본 크기"
+        onPointerDown={startResize}
+        onDoubleClick={() => setBox({ ...boxRef.current, w: 0, h: 0 })}
+      />
     </div>
     </>
   );

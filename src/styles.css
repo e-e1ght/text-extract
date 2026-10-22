@@ -984,85 +984,117 @@ body {
 .edit-launcher:active { cursor: grabbing; }
 .edit-launcher.is-open { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
 
+/*
+ * 포토샵 패널처럼: 좁고 촘촘하게, 내용에 맞춘 크기. 머리는 탭 한 칸짜리 띠.
+ * 크기 손잡이는 작은 화면에서 줄여 쓰기 위한 것 — 기본은 늘 내용에 맞춘다.
+ */
 .edit-panel {
   position: fixed;
   z-index: 40;
   display: flex;
   flex-direction: column;
-  min-width: 280px;
-  min-height: 120px;
+  width: 268px;
+  min-width: 180px;
   max-width: calc(100vw - 16px);
   max-height: calc(100vh - 16px);
+  font-size: 11px;
   background: var(--ui-popup-bg);
   border: 1px solid var(--ui-popup-line);
-  border-radius: var(--r-sm);
-  box-shadow: 0 10px 34px var(--ui-popup-shadow);
+  border-radius: 2px;
+  box-shadow: 0 6px 22px var(--ui-popup-shadow);
   overflow: hidden;
-}
-/* 크기 조절 손잡이 — 오른쪽 아래 모서리의 빗금 */
-.edit-panel-resize {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 16px;
-  height: 16px;
-  cursor: nwse-resize;
-  touch-action: none;
-  background:
-    linear-gradient(135deg, transparent 0 55%, var(--ui-strong) 55% 62%, transparent 62% 72%,
-      var(--ui-strong) 72% 79%, transparent 79%);
 }
 .edit-panel-head {
   flex: 0 0 auto;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 34px;
-  padding: 0 4px 0 12px;
-  border-bottom: 1px solid var(--ui-popup-sub-line);
+  align-items: stretch;
+  height: 24px;
+  background: var(--ui-panel-2);
+  border-bottom: 1px solid var(--ui-popup-line);
   cursor: move;
   touch-action: none;
   user-select: none;
 }
-.edit-panel-title { font-size: 12px; font-weight: 800; }
-.edit-panel-target {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* 탭 한 칸 — 고른 탭처럼 바탕이 몸통과 이어진다 */
+.edit-panel-title {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  margin-bottom: -1px;
   font-size: 11px;
-  color: var(--ui-muted);
+  font-weight: 700;
+  background: var(--ui-popup-bg);
+  border-right: 1px solid var(--ui-popup-line);
+  box-shadow: inset 0 2px 0 var(--ui-accent);
 }
-.edit-panel.is-idle .edit-panel-target { color: var(--ui-accent); font-weight: 600; }
+.ep-spacer { flex: 1; }
 .edit-panel-close {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  font-size: 10px;
   color: var(--ui-dim);
   background: none;
   border: none;
-  border-radius: var(--r-sm);
   cursor: pointer;
 }
 .edit-panel-close:hover { color: var(--ui-text); background: var(--ui-popup-hover); }
+.edit-panel-target {
+  flex: 0 0 auto;
+  padding: 5px 8px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  color: var(--ui-muted);
+}
+.edit-panel.is-idle .edit-panel-target { color: var(--ui-accent); font-weight: 600; }
 /* 내용은 패널 안에서 스크롤된다 — 작게 줄여도 잘리지 않는다 */
 .edit-panel-body {
   flex: 1;
   min-height: 0;
   overflow: auto;
   margin: 0;
-  padding: 6px;
+  padding: 6px 8px 10px;
   border: none;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
-/* 고른 글이 없을 때는 흐리게 — fieldset disabled 가 단추를 실제로 잠근다 */
 .edit-panel-body:disabled { opacity: 0.45; }
+.edit-panel.is-collapsed .edit-panel-body,
+.edit-panel.is-collapsed .edit-panel-target,
+.edit-panel.is-collapsed .edit-panel-resize { display: none; }
+.edit-panel-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  touch-action: none;
+  background:
+    linear-gradient(135deg, transparent 0 55%, var(--ui-strong) 55% 62%, transparent 62% 72%,
+      var(--ui-strong) 72% 79%, transparent 79%);
+}
+
+/* 줄마다 한 묶음 — 줄 사이는 가는 선 */
+/* .popup-main 의 가운데 맞춤보다 앞서도록 두 겹으로 잡는다 — 포토샵처럼 왼쪽부터 꽉 차게 */
+.popup-main.ep-rows { flex-direction: column; align-items: stretch; gap: 0; }
+.ep-row { display: flex; align-items: center; justify-content: flex-start; gap: 2px; flex-wrap: wrap; padding: 4px 0; }
+.edit-panel-close { font-size: 12px; }
+.ep-row + .ep-row { border-top: 1px solid var(--ui-popup-sub-line); }
+/* 패널 안에서는 단추·입력칸을 작게 (포토샵 패널 크기) */
+.edit-panel .popup-btn { height: 22px; min-width: 22px; padding: 0 6px; font-size: 11px; border-radius: 2px; }
+.edit-panel .popup-btn.slim { height: 20px; font-size: 10.5px; }
+.edit-panel .popup-sub { padding-top: 6px; }
+.edit-panel .swatch { width: 18px; height: 18px; }
+.edit-panel .swatch-picker { width: 22px; height: 18px; }
+.edit-panel .popup-note { max-width: none; font-size: 10px; }
+.edit-panel .popup-select, .edit-panel .popup-inline-input input { font-size: 11px; padding: 2px 5px; border-radius: 2px; }
+.edit-panel .popup-scope button { padding: 3px 6px; font-size: 10.5px; }
 .popup-main, .popup-sub { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; }
 /*
  * 줄 끝에 걸린 항목이 쪼그라들며 글자가 세로로 쌓이던 문제.
