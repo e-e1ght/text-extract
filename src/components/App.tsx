@@ -163,23 +163,21 @@ export function App() {
           <div className="topbar-tools">
             <button
               type="button"
-              className="top-button labeled"
-              title="이전으로 되돌리기 (Ctrl+Z)"
+              className="top-button"
+              title="되돌리기 (Ctrl+Z)"
               disabled={!historyState.undo}
               onClick={undo}
             >
               <IconUndo />
-              <span>이전</span>
             </button>
             <button
               type="button"
-              className="top-button labeled"
-              title="이후로 다시 실행 (Ctrl+Shift+Z)"
+              className="top-button"
+              title="다시 실행 (Ctrl+Shift+Z)"
               disabled={!historyState.redo}
               onClick={redo}
             >
               <IconRedo />
-              <span>이후</span>
             </button>
             <span className="top-sep" />
             <button

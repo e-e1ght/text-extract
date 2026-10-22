@@ -169,15 +169,6 @@ body {
   font-size: 13px;
 }
 .topbar-tools .top-button:last-child { border-right: none; }
-/* 되돌리기·다시 실행은 아이콘만으로는 눈에 띄지 않아 글자를 붙인다 */
-.top-button.labeled {
-  width: auto;
-  gap: 6px;
-  padding: 0 14px;
-  font-size: 12px;
-  font-weight: 600;
-  font-family: inherit;
-}
 .top-button:hover:not(:disabled) { color: var(--ui-text); background: var(--ui-hover); }
 .top-button:disabled { opacity: 0.28; cursor: not-allowed; }
 .top-sep { display: none; }
