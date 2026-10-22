@@ -34,14 +34,30 @@ async function waitForImages(node: HTMLElement): Promise<void> {
  * 큰 몫을 차지하고, PDF 는 쪽마다 이걸 되풀이했다. 한 번 만들어 두고 돌려 쓴다.
  */
 let fontCss: Promise<string> | null = null;
+let fontKey = '';
 
 /** 사용자가 글꼴을 새로 올리면 다시 만들어야 한다. */
 export function resetFontCache(): void {
   fontCss = null;
 }
 
+/** 결과물 안에서 실제로 쓰는 글꼴들 — html-to-image 도 이것만 끼워 넣는다 */
+function usedFamilies(node: HTMLElement): string {
+  const set = new Set<string>();
+  [node, ...node.querySelectorAll<HTMLElement>('*')].forEach((el) => {
+    set.add(getComputedStyle(el).fontFamily);
+  });
+  return [...set].sort().join('|');
+}
+
+/*
+ * 쓰는 글꼴이 바뀌면 다시 만든다. 예전에는 '새 글꼴을 처음 받을 때' 에만 비워서,
+ * 이미 한 번 받아 둔 글꼴로 바꾼 뒤 저장하면 그 글꼴이 빠진 채(기본 글꼴로) 저장될 수 있었다.
+ */
 function embeddedFontCss(node: HTMLElement): Promise<string> {
-  if (!fontCss) {
+  const key = usedFamilies(node);
+  if (!fontCss || key !== fontKey) {
+    fontKey = key;
     fontCss = getFontEmbedCSS(node).catch(() => '');
   }
   return fontCss;

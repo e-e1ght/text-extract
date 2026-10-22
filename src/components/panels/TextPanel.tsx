@@ -8,6 +8,7 @@ import { useStore } from '../../store';
 import { rememberColor } from '../../lib/recentColors';
 import { ButtonGroup, Field, FileButton, Hint, NumberSlider, RecentSwatches, Select } from '../ui';
 import { BorderStylePicker } from '../PageBorder';
+import { FontSelect } from '../Dropdowns';
 import type { BorderStyle } from '../../types';
 
 export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
@@ -48,16 +49,16 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
         여기서는 본문 전체에 걸리는 서식을 정합니다.
       </Hint>
 
-      <Select
-        label="글꼴"
-        value={t.fontFamily}
-        options={fontOptions}
-        hint="드래그 중이면 선택 영역만"
-        onChange={(fontFamily) => {
-          if (hasSelectionInside(editorRoot) && editorRoot) applyFontFamily(editorRoot, fontFamily);
-          else patch('typography', { fontFamily });
-        }}
-      />
+      <Field label="글꼴" hint="본문 전체 · 이름순">
+        <FontSelect
+          value={t.fontFamily}
+          options={fontOptions}
+          onPick={(fontFamily) => {
+            if (hasSelectionInside(editorRoot) && editorRoot) applyFontFamily(editorRoot, fontFamily);
+            else patch('typography', { fontFamily });
+          }}
+        />
+      </Field>
       <Field label="내 글꼴 올리기" hint="ttf · otf · woff2">
         <div className="button-row">
           <FileButton

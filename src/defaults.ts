@@ -24,6 +24,7 @@ function slot(size: number): ImageSlot {
   };
 }
 
+/** 글꼴 목록 — 이름순 (영문 이름이 앞, 한글 이름이 뒤) */
 export const FONT_OPTIONS = [
   { label: '프리텐다드 (Pretendard)', value: "'Pretendard Variable', Pretendard, sans-serif" },
   { label: '본고딕 (Noto Sans KR)', value: "'Noto Sans KR', sans-serif" },
@@ -34,7 +35,16 @@ export const FONT_OPTIONS = [
   { label: '고운바탕', value: "'Gowun Batang', serif" },
   { label: 'IBM Plex Sans KR', value: "'IBM Plex Sans KR', sans-serif" },
   { label: '함렛 (Hahmlet)', value: "'Hahmlet', serif" },
-];
+  { label: '어그로체', value: "'Aggravo', sans-serif" },
+  { label: 'Mona12', value: "'Mona12', monospace" },
+  { label: '갈무리11', value: "'Galmuri11', monospace" },
+  { label: '조선굴림체', value: "'JoseonGulim', sans-serif" },
+  { label: '이서윤체', value: "'IsYun', sans-serif" },
+  { label: '조선일보명조', value: "'ChosunIlboMyungjo', serif" },
+  { label: '리디바탕', value: "'Ridibatang', serif" },
+  { label: '부크크 명조', value: "'BookkMyungjo', serif" },
+  { label: '프리젠테이션', value: "'Presentation', sans-serif" },
+].sort((a, b) => a.label.localeCompare(b.label, 'ko'));
 
 export const RATIO_PRESETS = [
   { label: '1:1', w: 1, h: 1 },

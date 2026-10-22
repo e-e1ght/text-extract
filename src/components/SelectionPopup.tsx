@@ -12,6 +12,7 @@ import { fontFamilyOf } from '../lib/fonts';
 import { rememberColor } from '../lib/recentColors';
 import { IconClose, IconEdit } from './icons';
 import { ColorPicker } from './ColorPicker';
+import { FontSelect, SizeCombo } from './Dropdowns';
 import type { Role } from '../lib/parse';
 import { useStore } from '../store';
 
@@ -36,8 +37,8 @@ const TEXT_SWATCHES = ['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8'];
 
 
 type Panel =
-  | 'none' | 'color' | 'highlight' | 'size' | 'character'
-  | 'bubble' | 'script' | 'font' | 'bar' | 'image' | 'redact';
+  | 'none' | 'color' | 'highlight' | 'character'
+  | 'bubble' | 'script' | 'bar' | 'image' | 'redact';
 /** 색을 '이 선택 영역만' 바꿀지, '같은 역할 전체'에 적용할지 */
 type ColorScope = 'role' | 'selection';
 
@@ -113,7 +114,6 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
   const [role, setRole] = useState<Role>('narration');
   const [scope, setScope] = useState<ColorScope>('role');
   const [picked, setPicked] = useState('');
-  const [sizeInput, setSizeInput] = useState('');
   const [pickedImage, setPickedImage] = useState<HTMLImageElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
   /**
@@ -124,8 +124,10 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
   const [bubbleSpeaker, setBubbleSpeaker] = useState('');
   /** 커서가 이미 말풍선/대본 안에 있으면 '만들기' 대신 '바꾸기·풀기' 를 보여준다 */
   const [inBlock, setInBlock] = useState<BlockKind | null>(null);
-  /** 지금 고른 글자의 색 — 피커가 여기서 시작한다 */
+  /** 지금 고른 글자의 색·글꼴·크기 — 고르는 칸이 여기서 시작한다 */
   const [pickedColor, setPickedColor] = useState('#000000');
+  const [pickedFont, setPickedFont] = useState('');
+  const [pickedSize, setPickedSize] = useState(17);
   /** 제목·부제목·제작자를 골랐으면 그 종류 (본문이 아니라 설정의 색·크기를 바꾼다) */
   const [metaTarget, setMetaTarget] = useState<'title' | 'subtitle' | 'author' | null>(null);
   /** 고른 곳이 이미 가려져 있으면 그 방식 — '가리기 풀기' 를 보여 줄지 정한다 */
@@ -171,7 +173,12 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
     if (sel && sel.rangeCount > 0) {
       const start = sel.getRangeAt(0).startContainer;
       const el = start.nodeType === Node.ELEMENT_NODE ? start as Element : start.parentElement;
-      if (el) setPickedColor(getComputedStyle(el).color);
+      if (el) {
+        const cs = getComputedStyle(el);
+        setPickedColor(cs.color);
+        setPickedFont(cs.fontFamily);
+        setPickedSize(Math.round(parseFloat(cs.fontSize) * 10) / 10);
+      }
     }
   }, [editorRoot]);
 
@@ -267,7 +274,6 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
       : role === 'emph' || role === 'mark' ? settings.roles.emphasis
         : settings.roles.narration;
 
-  const baseSize = role === 'dialogue' ? settings.typography.dialogueFontSize : settings.typography.fontSize;
   const isCharacter = Boolean(settings.characters[picked]);
   const fontChoices = [
     ...FONT_OPTIONS,
@@ -440,11 +446,21 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
             지우기
           </button>
         </div>
+        {/* 포토샵 문자 패널처럼 글꼴·크기는 늘 보이게 */}
+        <div className="ep-row ep-type">
+          <FontSelect
+            value={pickedFont}
+            options={fontChoices}
+            onPick={(family) => withSelection(() => applyFontFamily(editorRoot, family))}
+          />
+          <SizeCombo
+            value={pickedSize}
+            onApply={(size) => withSelection(() => applyFontSize(editorRoot, size))}
+          />
+        </div>
         <div className="ep-row">
           {tab('color', '색', '글자 색')}
           {tab('highlight', '형광', '하이라이트')}
-          {tab('size', '크기', '글자 크기')}
-          {tab('font', '글꼴', '글꼴')}
           {tab('bar', '▌', '왼쪽 세로선')}
           {pickedImage ? tab('image', '이미지', '이미지 크기·정렬') : null}
         </div>
@@ -497,71 +513,6 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
             <button type="button" className="popup-btn slim"
               onClick={() => withSelection(() => clearHighlight(editorRoot))}>형광 지우기</button>
           </div>
-        </div>
-      ) : null}
-
-      {panel === 'size' ? (
-        <div className="popup-sub">
-          {[-6, -3, -1, 1, 3, 6, 12].map((delta) => (
-            <button
-              key={delta}
-              type="button"
-              className="popup-btn slim"
-              onClick={() => applyFontSize(editorRoot, Math.max(8, baseSize + delta))}
-            >
-              {baseSize + delta}
-            </button>
-          ))}
-          <button type="button" className="popup-btn slim"
-            onClick={() => applyFontSize(editorRoot, baseSize)}>
-            기본 {baseSize}
-          </button>
-          <span className="popup-inline-input">
-            <input
-              type="number"
-              min={8}
-              max={200}
-              placeholder="직접"
-              value={sizeInput}
-              onChange={(event) => setSizeInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter') return;
-                event.preventDefault();
-                const next = Number(sizeInput);
-                if (Number.isFinite(next) && next >= 8) withSelection(() => applyFontSize(editorRoot, next));
-              }}
-            />
-            <button
-              type="button"
-              className="popup-btn slim"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                const next = Number(sizeInput);
-                if (Number.isFinite(next) && next >= 8) withSelection(() => applyFontSize(editorRoot, next));
-              }}
-            >
-              적용
-            </button>
-          </span>
-        </div>
-      ) : null}
-
-      {panel === 'font' ? (
-        <div className="popup-sub popup-sub-column">
-          <div className="popup-row">
-            {fontChoices.map((font) => (
-              <button
-                key={font.value}
-                type="button"
-                className="popup-btn slim"
-                style={{ fontFamily: font.value }}
-                onClick={() => applyFontFamily(editorRoot, font.value)}
-              >
-                {font.label.replace(/\s*\(.*\)$/, '')}
-              </button>
-            ))}
-          </div>
-          <p className="popup-note">고른 글꼴이 드래그한 영역에만 적용됩니다.</p>
         </div>
       ) : null}
 
