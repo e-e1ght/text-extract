@@ -75,6 +75,7 @@ export function ensureWebFont(stack: string): void {
     if (extra.cssUrl) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
+      link.crossOrigin = 'anonymous';
       link.href = extra.cssUrl;
       link.dataset.teFont = family;
       link.addEventListener('load', () => { void resetFontCache(); }, { once: true });
@@ -97,6 +98,12 @@ export function ensureWebFont(stack: string): void {
 
   const link = document.createElement('link');
   link.rel = 'stylesheet';
+  /*
+   * crossorigin 을 붙여야 저장할 때 html-to-image 가 이 CSS 의 규칙을 바로 읽는다.
+   * 없으면 CSS 를 다시 받아 페이지의 다른 <style> 에 끼워 넣는데, 그 <style> 을 React 가
+   * 다시 쓰면 끼운 규칙이 사라져 저장본에서만 글꼴이 빠졌다.
+   */
+  link.crossOrigin = 'anonymous';
   link.href = `https://fonts.googleapis.com/css2?family=${query}&display=swap`;
   link.dataset.teFont = family;
   // 내보내기용 글꼴 CSS 를 미리 만들어 두므로, 글꼴이 늘면 다시 만들게 한다.

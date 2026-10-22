@@ -63,6 +63,72 @@ function embeddedFontCss(node: HTMLElement): Promise<string> {
   return fontCss;
 }
 
+const unquote = (family: string) => family.trim().replace(/^['"]|['"]$/g, '');
+
+/** 'U+AC00-D7A3, U+3131' 같은 unicode-range 가 쓰인 글자 하나라도 품는지 */
+function rangeHits(range: string, chars: Set<number>): boolean {
+  return range.split(',').some((part) => {
+    const m = /U\+([0-9a-f?]+)(?:-([0-9a-f]+))?/i.exec(part.trim());
+    if (!m) return true;
+    const lo = parseInt(m[1].replace(/\?/g, '0'), 16);
+    const hi = parseInt(m[2] ?? m[1].replace(/\?/g, 'f'), 16);
+    for (const c of chars) if (c >= lo && c <= hi) return true;
+    return false;
+  });
+}
+
+/**
+ * 끼워 넣은 글꼴 CSS 를 '이 그림에 실제로 그려지는 것' 만 남긴다.
+ *
+ * Google Fonts 의 한글 글꼴은 굵기마다 글자 범위별로 90여 조각이라, 그대로 넣으면
+ * 굵기 셋짜리 한 벌만으로 8MB 가 넘는다. 그림을 그릴 때 그 많은 글꼴을 다 읽기 전에
+ * 그려 버려서 **굵은 글씨가 기본 글꼴로** 나오곤 했다(제목은 늘 굵다).
+ * 쓰인 (글꼴, 굵기) 와 쓰인 글자가 든 조각만 남기면 수백 KB 로 줄고 빠짐없이 그려진다.
+ */
+function trimFontCss(css: string, node: HTMLElement): string {
+  if (!css) return css;
+  const chars = new Set<number>();
+  /** 글꼴 이름 → 그 글꼴로 그리는 굵기들 */
+  const weights = new Map<string, Set<number>>();
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+  for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+    const el = text.parentElement;
+    if (!el || !text.nodeValue?.trim()) continue;
+    for (const ch of text.nodeValue) chars.add(ch.codePointAt(0) ?? 0);
+    const cs = getComputedStyle(el);
+    const weight = Number(cs.fontWeight) || 400;
+    // 앞 글꼴에 없는 글자는 뒤 글꼴로 그리므로 묶음 전체를 본다
+    cs.fontFamily.split(',').forEach((family) => {
+      const name = unquote(family);
+      if (!weights.has(name)) weights.set(name, new Set());
+      weights.get(name)?.add(weight);
+    });
+  }
+
+  const faces = css.split(/(?=@font-face)/);
+  /** 글꼴마다 갖고 있는 굵기 — 원하는 굵기가 없으면 가장 가까운 것을 남긴다 */
+  const available = new Map<string, number[]>();
+  const info = faces.map((face) => {
+    const family = unquote(/font-family:\s*([^;]+);/.exec(face)?.[1] ?? '');
+    const range = /font-weight:\s*(\d+)(?:\s+(\d+))?/.exec(face);
+    const lo = range ? Number(range[1]) : 400;
+    const hi = range?.[2] ? Number(range[2]) : lo;
+    if (family) available.set(family, [...(available.get(family) ?? []), lo]);
+    return { face, family, lo, hi, unicode: /unicode-range:\s*([^;]+);/.exec(face)?.[1] };
+  });
+
+  const nearest = (family: string, want: number) => (available.get(family) ?? [])
+    .reduce((best, w) => (Math.abs(w - want) < Math.abs(best - want) ? w : best), Infinity);
+
+  return info.filter(({ face, family, lo, hi, unicode }) => {
+    if (!face.startsWith('@font-face') || !family) return true;
+    const wanted = weights.get(family);
+    if (!wanted) return false;
+    const weightOk = [...wanted].some((w) => (w >= lo && w <= hi) || nearest(family, w) === lo);
+    return weightOk && (!unicode || rangeHits(unicode, chars));
+  }).map(({ face }) => face).join('');
+}
+
 async function withPreparedNode<T>(node: HTMLElement, run: (fontEmbedCSS: string) => Promise<T>): Promise<T> {
   /*
    * 고른 이미지의 파란 테두리는 화면 안내지 결과물이 아니다.
@@ -81,7 +147,7 @@ async function withPreparedNode<T>(node: HTMLElement, run: (fontEmbedCSS: string
      * 준비된 CSS 를 미리 만들어 넘기면 버리는 촬영 없이도 한 번에 제대로 나온다.
      * 큰 글에서는 이 한 번이 저장 시간의 절반이었다.
      */
-    return await run(await embeddedFontCss(node));
+    return await run(trimFontCss(await embeddedFontCss(node), node));
   } finally {
     picked.forEach((el) => el.classList.add('is-picked'));
   }

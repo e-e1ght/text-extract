@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useStore } from '../store';
 import { AsciiArt, PatternFill } from './BackgroundArt';
 import { loadImage, measureAspect } from '../lib/ascii';
 import { PageBorder } from './PageBorder';
 import { PageGuides, usePagePlan } from './PageGuides';
 import { ensureWebFont } from '../lib/webfonts';
+import { metaHtml, type MetaField } from '../lib/metaText';
 import type { ImageSlot, Settings, SlotSide } from '../types';
 
 function escapeAttr(value: string): string {
@@ -176,6 +177,67 @@ function backgroundLayer(settings: Settings): ReactNode {
   }
 }
 
+/**
+ * 제목·부제목·제작자 한 줄 — 본문처럼 미리보기에서 바로 고치고, 드래그해 편집 패널로 꾸민다.
+ *
+ * React 가 안을 다시 그리면 커서와 선택이 날아가므로 HTML 은 직접 넣는다. 바깥에서 바뀐
+ * 때(사이드바 입력칸 · 되돌리기)만 갈아 끼운다. 저장은 DOM 이 바뀔 때마다 — 편집 패널의
+ * 서식 명령은 input 이벤트 뒤에도 DOM 을 손보므로 MutationObserver 로 받는다.
+ */
+function MetaText({ field, className, style }: { field: MetaField; className: string; style: CSSProperties }) {
+  const { settings, patch } = useStore();
+  const html = metaHtml(settings.meta, field);
+  const ref = useRef<HTMLDivElement | null>(null);
+  const stored = useRef(html);
+  stored.current = html;
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || el.innerHTML === html) return;
+    el.innerHTML = html;
+    // 본문과 같이, 드래그로 글꼴을 준 자리가 있으면 그 글꼴을 받아 온다 (새로고침 뒤에도)
+    el.querySelectorAll<HTMLElement>('[style*="font-family"]')
+      .forEach((node) => ensureWebFont(node.style.fontFamily));
+  }, [html]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    let frame = 0;
+    const save = () => {
+      frame = 0;
+      // 서식 명령이 남긴 빈 style="" 은 버린다
+      el.querySelectorAll('[style=""]').forEach((node) => node.removeAttribute('style'));
+      if (el.innerHTML === stored.current) return;
+      stored.current = el.innerHTML;
+      patch('meta', { [`${field}Html`]: el.innerHTML, [field]: el.textContent ?? '' });
+    };
+    const observer = new MutationObserver(() => { if (!frame) frame = requestAnimationFrame(save); });
+    observer.observe(el, { subtree: true, childList: true, characterData: true, attributes: true });
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [field, patch]);
+
+  return (
+    <div
+      ref={ref}
+      className={`${className} meta-editable`}
+      style={style}
+      contentEditable
+      suppressContentEditableWarning
+      spellCheck={false}
+      role="textbox"
+      aria-label={field === 'title' ? '제목' : field === 'subtitle' ? '부제목' : '제작자'}
+      // 한 줄짜리다 — 줄바꿈은 막고, 붙여 넣는 글은 서식 없이 한 줄로
+      onKeyDown={(event) => { if (event.key === 'Enter') event.preventDefault(); }}
+      onPaste={(event) => {
+        event.preventDefault();
+        const text = event.clipboardData.getData('text/plain').replace(/\s*\n\s*/g, ' ');
+        document.execCommand('insertText', false, text);
+      }}
+    />
+  );
+}
+
 /** 제목 + 부제목. 본문 서식(글꼴·자간·행간·장평)을 그대로 물려받는다. */
 function TitleBlock({ settings }: { settings: Settings }) {
   const { meta } = settings;
@@ -189,14 +251,12 @@ function TitleBlock({ settings }: { settings: Settings }) {
   return (
     <div className="meta-block" style={{ textAlign: meta.align, gap: `${meta.innerGap}px`, ...spacing }}>
       {meta.showTitle && meta.title ? (
-        <div className="meta-title" style={{ fontSize: `${meta.titleSize}px`, color: meta.titleColor }}>
-          {meta.title}
-        </div>
+        <MetaText field="title" className="meta-title"
+          style={{ fontSize: `${meta.titleSize}px`, color: meta.titleColor }} />
       ) : null}
       {meta.showSubtitle && meta.subtitle ? (
-        <div className="meta-subtitle" style={{ fontSize: `${meta.subtitleSize}px`, color: meta.subtitleColor }}>
-          {meta.subtitle}
-        </div>
+        <MetaText field="subtitle" className="meta-subtitle"
+          style={{ fontSize: `${meta.subtitleSize}px`, color: meta.subtitleColor }} />
       ) : null}
     </div>
   );
@@ -211,7 +271,8 @@ function AuthorBlock({ settings }: { settings: Settings }) {
     ? { marginBottom: `${meta.authorGap}px` }
     : { marginTop: `${meta.authorGap}px` };
   return (
-    <div
+    <MetaText
+      field="author"
       className="meta-author"
       style={{
         fontSize: `${meta.authorSize}px`,
@@ -219,9 +280,7 @@ function AuthorBlock({ settings }: { settings: Settings }) {
         textAlign: meta.authorAlign,
         ...spacing,
       }}
-    >
-      {meta.author}
-    </div>
+    />
   );
 }
 

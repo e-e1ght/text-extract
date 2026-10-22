@@ -1,18 +1,24 @@
 import { useStore } from '../../store';
 import { ButtonGroup, Hint, NumberSlider, TextInput, Toggle } from '../ui';
+import { retextHtml, type MetaField } from '../../lib/metaText';
 
 export function MetaPanel() {
   const { settings, patch } = useStore();
   const meta = settings.meta;
+  /** 입력칸에서 글자를 고쳐도 미리보기에서 입힌 서식은 그대로 */
+  const retext = (field: MetaField, text: string) => {
+    const html = meta[`${field}Html`];
+    patch('meta', { [field]: text, [`${field}Html`]: html === undefined ? undefined : retextHtml(html, text) });
+  };
 
   return (
     <>
-      <Hint>제목·부제목·제작자의 <strong>색과 크기</strong>는 미리보기에서 그 글을 드래그한 뒤 편집 패널에서 고릅니다.</Hint>
+      <Hint>제목·부제목·제작자는 미리보기에서 본문처럼 바로 고칠 수 있고, 드래그한 뒤 <strong>편집 패널</strong>에서 굵기·글꼴·크기·색을 바꿉니다.</Hint>
       <Toggle label="제목 표시" checked={meta.showTitle} onChange={(showTitle) => patch('meta', { showTitle })} />
       {meta.showTitle ? (
         <>
           <TextInput label="제목" value={meta.title} placeholder="제목을 입력하세요"
-            onChange={(title) => patch('meta', { title })} />
+            onChange={(title) => retext('title', title)} />
         </>
       ) : null}
 
@@ -20,7 +26,7 @@ export function MetaPanel() {
       {meta.showSubtitle ? (
         <>
           <TextInput label="부제목" value={meta.subtitle} placeholder="부제목"
-            onChange={(subtitle) => patch('meta', { subtitle })} />
+            onChange={(subtitle) => retext('subtitle', subtitle)} />
         </>
       ) : null}
 
@@ -28,7 +34,7 @@ export function MetaPanel() {
       {meta.showAuthor ? (
         <>
           <TextInput label="제작자" value={meta.author} placeholder="@아이디 / 이름"
-            onChange={(author) => patch('meta', { author })} />
+            onChange={(author) => retext('author', author)} />
         </>
       ) : null}
 

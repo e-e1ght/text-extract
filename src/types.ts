@@ -117,6 +117,13 @@ export interface Meta {
   author: string;
   authorSize: number;
   authorColor: string;
+  /**
+   * 미리보기에서 직접 고친 서식 있는 글. 없으면 위의 글자를 그대로 쓴다.
+   * 글자(title 등)는 늘 이 HTML 의 글자와 같게 맞춰 둔다 — 사이드바 입력칸이 그것을 보여 준다.
+   */
+  titleHtml?: string;
+  subtitleHtml?: string;
+  authorHtml?: string;
   /** 제작자는 위치·정렬 모두 제목과 따로 잡는다 */
   authorAlign: Exclude<AlignX, 'justify'>;
   /** 본문 위/아래. 제목과 같은 쪽이면 제작자가 바깥쪽에 온다 */

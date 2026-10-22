@@ -128,50 +128,53 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
   const [pickedColor, setPickedColor] = useState('#000000');
   const [pickedFont, setPickedFont] = useState('');
   const [pickedSize, setPickedSize] = useState(17);
-  /** 제목·부제목·제작자를 골랐으면 그 종류 (본문이 아니라 설정의 색·크기를 바꾼다) */
-  const [metaTarget, setMetaTarget] = useState<'title' | 'subtitle' | 'author' | null>(null);
+  /**
+   * 제목·부제목·제작자 안을 골랐으면 그 줄. 본문과 같은 서식 명령을 그 줄에 건다 —
+   * 다만 말풍선·대본·세로선처럼 본문 줄에만 맞는 것은 감춘다.
+   */
+  const [metaEl, setMetaEl] = useState<HTMLElement | null>(null);
   /** 고른 곳이 이미 가려져 있으면 그 방식 — '가리기 풀기' 를 보여 줄지 정한다 */
   const [redaction, setRedaction] = useState<RedactKind | null>(null);
 
   /** 본문 선택이 바뀔 때마다 '무엇을 골랐는지' 를 다시 읽는다 */
   const update = useCallback(() => {
     if (!editorRoot) return;
+    const sel = window.getSelection();
+    const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    let meta: HTMLElement | null = null;
     if (!hasSelectionInside(editorRoot)) {
-      // 패널의 입력칸·드롭다운을 만지는 중이면 본문 선택이 잠시 풀린다 — 그때는 그대로 둔다
-      if (popupRef.current?.contains(document.activeElement)) return;
-      /*
-       * 제목·부제목·제작자는 본문 밖이라 따로 본다. 그 안을 드래그하면 그 줄 전체가 대상이다
-       * (본문처럼 일부만 칠하지는 않는다 — 제목 글은 패널의 입력칸이 원본이라서).
-       */
-      const metaSel = window.getSelection();
-      const anchor = metaSel && !metaSel.isCollapsed ? metaSel.anchorNode : null;
-      const metaEl = (anchor?.nodeType === Node.ELEMENT_NODE ? anchor as Element : anchor?.parentElement)
-        ?.closest('.meta-title, .meta-subtitle, .meta-author');
-      if (metaEl) {
-        setMetaTarget(metaEl.classList.contains('meta-title') ? 'title'
-          : metaEl.classList.contains('meta-subtitle') ? 'subtitle' : 'author');
-        setHasTarget(true);
+      // 제목·부제목·제작자는 본문 밖이라 따로 본다
+      const node = range && !range.collapsed ? range.commonAncestorContainer : null;
+      meta = (node?.nodeType === Node.ELEMENT_NODE ? node as Element : node?.parentElement)
+        ?.closest<HTMLElement>('.meta-editable') ?? null;
+      if (!meta) {
+        // 패널의 입력칸·드롭다운을 만지는 중이면 본문 선택이 잠시 풀린다 — 그때는 그대로 둔다
+        if (popupRef.current?.contains(document.activeElement)) return;
+        setMetaEl(null);
+        setHasTarget(false);
         return;
       }
-      setMetaTarget(null);
-      setHasTarget(false);
-      return;
     }
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) lastRange.current = sel.getRangeAt(0).cloneRange();
+    if (range) lastRange.current = range.cloneRange();
+    setMetaEl(meta);
     setHasTarget(true);
     setActive(Object.fromEntries(INLINE_BUTTONS.map((b) => [b.command, queryInline(b.command)])));
-    setRole(selectionRole(editorRoot));
-    setPicked(selectionText());
-    setPickedImage(selectionImage(editorRoot));
-    const block = blockAtSelection(editorRoot);
-    setInBlock(block ? (block.classList.contains('te-script') ? 'script' : 'bubble') : null);
-    if (block?.dataset.teSpeaker) setBubbleSpeaker(block.dataset.teSpeaker);
-    setRedaction(redactionAtSelection(editorRoot));
-    setMetaTarget(null);
+    if (meta) {
+      setPickedImage(null);
+      setInBlock(null);
+      setRedaction(null);
+    } else {
+      setRole(selectionRole(editorRoot));
+      setPicked(selectionText());
+      setPickedImage(selectionImage(editorRoot));
+      const block = blockAtSelection(editorRoot);
+      setInBlock(block ? (block.classList.contains('te-script') ? 'script' : 'bubble') : null);
+      if (block?.dataset.teSpeaker) setBubbleSpeaker(block.dataset.teSpeaker);
+      setRedaction(redactionAtSelection(editorRoot));
+    }
     // 피커가 '지금 그 글자의 색' 에서 시작하도록 읽어 둔다
-    if (sel && sel.rangeCount > 0) {
-      const start = sel.getRangeAt(0).startContainer;
+    if (range) {
+      const start = range.startContainer;
       const el = start.nodeType === Node.ELEMENT_NODE ? start as Element : start.parentElement;
       if (el) {
         const cs = getComputedStyle(el);
@@ -232,6 +235,9 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
 
 
   if (!editorRoot) return null;
+  /** 서식을 걸 곳 — 제목 줄을 골랐으면 그 줄, 아니면 본문 */
+  const root = metaEl?.isConnected ? metaEl : editorRoot;
+  const inMeta = root !== editorRoot;
 
   /** 팝업 입력칸을 거친 뒤에도 본문 선택을 되살려 명령이 먹히게 한다. */
   const withSelection = (action: () => void) => {
@@ -250,8 +256,8 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
   /** 역할 전체에 적용하면 사이드바 색상과 그대로 연동된다. */
   const setColor = (color: string) => {
     rememberColor(color);
-    if (scope === 'selection') {
-      applyTextColor(editorRoot, color);
+    if (inMeta || scope === 'selection') {
+      applyTextColor(root, color);
       return;
     }
     if (role === 'dialogue') patch('roles', { dialogue: color });
@@ -399,22 +405,6 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
         </button>
       </div>
       {/* 고른 글이 없으면 통째로 잠근다 — 무엇에 적용될지 모르는 채 누르지 않게 */}
-      {metaTarget ? (
-        <div className="edit-panel-body">
-          <div className="ep-label">색</div>
-          <ColorPicker
-            value={settings.meta[`${metaTarget}Color`]}
-            onPick={(color) => { rememberColor(color); patch('meta', { [`${metaTarget}Color`]: color }); }}
-            swatches={TEXT_SWATCHES}
-          />
-          <div className="ep-label">크기</div>
-          <SizeCombo
-            value={settings.meta[`${metaTarget}Size`]}
-            max={160}
-            onApply={(size) => patch('meta', { [`${metaTarget}Size`]: size })}
-          />
-        </div>
-      ) : (
       <fieldset className="edit-panel-body" disabled={!hasTarget}>
       {/*
         포토샵 문자 패널처럼 줄마다 한 묶음: 서식 / 글자 / 묶기.
@@ -435,7 +425,7 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
           ))}
           <span className="ep-spacer" />
           <button type="button" title="서식 지우기" className="popup-btn"
-            onClick={() => { removeFormatting(editorRoot); refreshActive(); }}>
+            onClick={() => { removeFormatting(root); refreshActive(); }}>
             지우기
           </button>
         </div>
@@ -444,30 +434,34 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
           <FontSelect
             value={pickedFont}
             options={fontChoices}
-            onPick={(family) => withSelection(() => applyFontFamily(editorRoot, family))}
+            onPick={(family) => withSelection(() => applyFontFamily(root, family))}
           />
           <SizeCombo
             value={pickedSize}
-            onApply={(size) => withSelection(() => applyFontSize(editorRoot, size))}
+            onApply={(size) => withSelection(() => applyFontSize(root, size))}
+            max={160}
           />
         </div>
         <div className="ep-row">
           {tab('color', '색', '글자 색')}
           {tab('highlight', '형광', '하이라이트')}
-          {tab('bar', '▌', '왼쪽 세로선')}
+          {inMeta ? null : tab('bar', '▌', '왼쪽 세로선')}
           {pickedImage ? tab('image', '이미지', '이미지 크기·정렬') : null}
         </div>
+        {inMeta ? null : (
         <div className="ep-row">
           {tab('bubble', '말풍선', '말풍선으로 만들기')}
           {tab('script', '대본', '대본 형식으로 만들기 (이름과 대사를 나란히)')}
           {tab('character', '캐릭터', '선택한 글자를 캐릭터로 지정')}
           {tab('redact', '가리기', '고른 글을 검은 막대나 흐림으로 가리기')}
         </div>
+        )}
       </div>
 
       {panel === 'color' ? (
         <div className="popup-sub popup-sub-column">
-          {/* 고른 부분이 먼저 — 드래그한 뒤 고르는 것이니 가까운 쪽이 왼쪽 */}
+          {/* 고른 부분이 먼저 — 드래그한 뒤 고르는 것이니 가까운 쪽이 왼쪽. 제목 줄은 고른 부분뿐 */}
+          {inMeta ? null : (
           <div className="popup-scope">
             <button
               type="button"
@@ -484,17 +478,20 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
               {ROLE_LABEL[role]} 전체
             </button>
           </div>
+          )}
           <ColorPicker
-            value={scope === 'role' ? roleColor : pickedColor}
+            value={scope === 'role' && !inMeta ? roleColor : pickedColor}
             // 코드 입력칸을 거치면 본문 선택이 풀린다 — 되살린 뒤 적용한다
             onPick={(color) => withSelection(() => setColor(color))}
             swatches={TEXT_SWATCHES}
           />
+          {inMeta ? null : (
           <p className="popup-note">
             {scope === 'role'
               ? '같은 역할의 글이 모두 이 색으로 바뀝니다 (캐릭터 색이 정해진 대사·이름은 그대로).'
               : '이 영역에만 적용되며, 패널 색상보다 우선합니다.'}
           </p>
+          )}
         </div>
       ) : null}
 
@@ -504,7 +501,7 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
             swatches={HIGHLIGHT_SWATCHES.slice(0, 5)} />
           <div className="popup-row">
             <button type="button" className="popup-btn slim"
-              onClick={() => withSelection(() => clearHighlight(editorRoot))}>형광 지우기</button>
+              onClick={() => withSelection(() => clearHighlight(root))}>형광 지우기</button>
           </div>
         </div>
       ) : null}
@@ -654,7 +651,6 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
         </div>
       ) : null}
       </fieldset>
-      )}
       <div
         className="edit-panel-resize"
         title="끌어서 폭 조절 · 두 번 누르면 기본 폭"
