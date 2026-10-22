@@ -960,8 +960,11 @@ body {
  * 편집 패널 — '편집' 단추로 열고, 머리를 끌어 옮기고, 오른쪽 아래 모서리를 끌어 크기를 바꾼다.
  * 화면 좌표(fixed)로 둔다: 스크롤해도 같은 자리에 떠 있다.
  */
+/* 작업 영역 오른쪽 위에 박아 둔다 (작업 영역 안에 그려서 도구 패널과 겹치지 않는다) */
 .edit-launcher {
-  position: fixed;
+  position: absolute;
+  top: 14px;
+  right: 18px;
   z-index: 41;
   display: flex;
   align-items: center;
@@ -976,12 +979,10 @@ body {
   border: 1px solid var(--ui-popup-line);
   border-radius: 999px;
   box-shadow: 0 4px 16px var(--ui-popup-shadow);
-  cursor: grab;
-  touch-action: none;
+  cursor: pointer;
   user-select: none;
 }
 .edit-launcher:hover { border-color: var(--ui-strong); }
-.edit-launcher:active { cursor: grabbing; }
 .edit-launcher.is-open { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
 
 /*
@@ -1073,7 +1074,7 @@ body {
   bottom: 0;
   width: 14px;
   height: 14px;
-  cursor: nwse-resize;
+  cursor: ew-resize;
   touch-action: none;
   background:
     linear-gradient(135deg, transparent 0 55%, var(--ui-strong) 55% 62%, transparent 62% 72%,

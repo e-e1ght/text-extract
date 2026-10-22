@@ -269,7 +269,7 @@ export function App() {
             </button>
           </div>
 
-          <SelectionPopup editorRoot={editorRoot} />
+          <SelectionPopup editorRoot={editorRoot} stage={stageNode?.parentElement ?? null} />
 
           {saveError ? (
             <div className="save-warning" role="alert">{saveError}</div>

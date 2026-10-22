@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BAR_SWATCHES, FONT_OPTIONS, HIGHLIGHT_SWATCHES } from '../defaults';
 import {
   alignImage, applyBar, applyBubble, applyFontFamily, applyFontSize, applyHighlight,
@@ -33,7 +34,6 @@ const ROLE_LABEL: Record<Role, string> = {
 
 const TEXT_SWATCHES = ['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8'];
 
-const META_LABEL = { title: '제목', subtitle: '부제목', author: '제작자' } as const;
 
 type Panel =
   | 'none' | 'color' | 'highlight' | 'size' | 'character'
@@ -94,20 +94,19 @@ function dragFrom(
  * 단추와 패널 모두 끌어서 옮길 수 있고, 패널은 오른쪽 아래 모서리를 끌어 크기를 바꾼다.
  * 열려 있는 동안은 계속 떠 있고, 본문에서 고른 글이 없으면 단추들이 잠긴다.
  */
-export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null }) {
+export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement | null; stage: HTMLElement | null }) {
   const { settings, patch, upsertCharacter } = useStore();
   /** 본문에서 고른 글이 있는지 (없으면 단추를 잠근다) */
   const [hasTarget, setHasTarget] = useState(false);
   const [open, setOpen] = usePersisted('te-edit-panel-open', () => ({ value: false }));
-  const [launcher, setLauncher] = usePersisted('te-edit-launcher', () => ({
-    x: window.innerWidth - 120, y: window.innerHeight - 150,
-  }));
   /*
    * w·h 가 0 이면 '내용에 맞춤'. 크기 손잡이로 줄였을 때만 값이 생긴다 (작은 화면용).
    * 예전(v1)에는 620×300 으로 시작해 너무 컸다 — 열쇠를 바꿔 그 값을 버린다.
    */
   const [box, setBox] = usePersisted('te-edit-panel-v2', () => ({
     x: Math.max(16, window.innerWidth - 340), y: 110, w: 0, h: 0, collapsed: false,
+    /** 한 번이라도 자리를 잡았는지 — 처음 열 때는 편집 단추 바로 아래에 놓는다 */
+    placed: false,
   }));
   const [active, setActive] = useState<Record<string, boolean>>({});
   const [panel, setPanel] = useState<Panel>('none');
@@ -206,16 +205,14 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
     event.preventDefault();
     event.stopPropagation();
     const sx = event.clientX;
-    const sy = event.clientY;
     const start = boxRef.current;
-    // 내용에 맞춘 상태에서 시작하면 지금 보이는 크기에서부터 줄인다
+    // 내용에 맞춘 상태에서 시작하면 지금 보이는 폭에서부터 줄인다
     const w0 = popupRef.current?.offsetWidth ?? 268;
-    const h0 = popupRef.current?.offsetHeight ?? 160;
     const move = (e: PointerEvent) => {
       setBox({
         ...boxRef.current,
         w: Math.round(Math.min(window.innerWidth - start.x - 8, Math.max(180, w0 + e.clientX - sx))),
-        h: Math.round(Math.min(window.innerHeight - start.y - 8, Math.max(60, h0 + e.clientY - sy))),
+        h: 0,
       });
     };
     const up = () => {
@@ -225,6 +222,7 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   };
+
 
   if (!editorRoot) return null;
 
@@ -309,28 +307,43 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
     </button>
   );
 
-  const launcherPos = clampToViewport(launcher.x, launcher.y, 90, 40);
-  const panelPos = clampToViewport(box.x, box.y, box.w, box.h);
+  const panelPos = clampToViewport(box.x, box.y, box.w || 268, 40);
 
-  const launcherButton = (
+  const toggleOpen = () => {
+    if (!open.value && stage) {
+      const r = stage.getBoundingClientRect();
+      const w = box.w || 268;
+      /*
+       * 처음 열 때, 또는 기억해 둔 자리가 작업 영역 밖일 때(도구를 반대쪽으로 옮겼거나 창을 줄임)는
+       * 편집 단추 바로 아래로 데려온다 — 도구 패널 위에 덮여 열리지 않게.
+       */
+      const outside = box.x < r.left || box.x + w > r.right || box.y < r.top || box.y > r.bottom - 40;
+      if (!box.placed || outside) {
+        setBox({ ...boxRef.current, x: Math.round(r.right - w - 14), y: Math.round(r.top + 56), placed: true });
+      }
+    }
+    setOpen({ value: !open.value });
+  };
+
+  /*
+   * 편집 단추는 옮기지 않는다 — 작업 영역 오른쪽 위에 박아 둔다.
+   * 작업 영역 안에 그리므로, 도구를 오른쪽으로 옮기거나 폭을 바꿔도 도구 패널과 겹치지 않는다.
+   */
+  const launcherButton = stage ? createPortal(
     <button
       type="button"
       className={`edit-launcher${open.value ? ' is-open' : ''}`}
-      style={{ left: launcherPos.x, top: launcherPos.y }}
-      title={open.value ? '편집 패널 닫기 (끌어서 옮길 수 있음)' : '편집 패널 열기 (끌어서 옮길 수 있음)'}
+      title={open.value ? '편집 패널 닫기' : '편집 패널 열기'}
       data-export-ignore="true"
       // 단추를 눌러도 본문 선택이 풀리지 않게
       onMouseDown={(event) => event.preventDefault()}
-      onPointerDown={(event) => dragFrom(
-        event, launcherPos, { w: 90, h: 40 },
-        (pos) => setLauncher(pos),
-        () => setOpen({ value: !open.value }),
-      )}
+      onClick={toggleOpen}
     >
       <IconEdit />
       <span>편집</span>
-    </button>
-  );
+    </button>,
+    stage,
+  ) : null;
   if (!open.value) return launcherButton;
 
   return (
@@ -343,7 +356,7 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
         left: panelPos.x,
         top: panelPos.y,
         width: box.w || undefined,
-        height: box.collapsed ? undefined : (box.h || undefined),
+        // 높이는 늘 내용에 맞춘다 — 세부 설정을 펼치면 저절로 커진다 (화면보다 크면 그때만 스크롤)
       }}
       /*
        * 버튼을 누를 때 선택이 풀리지 않도록 mousedown 을 막는다.
@@ -362,7 +375,7 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
           if ((event.target as HTMLElement).closest('button')) return;
           const node = popupRef.current;
           dragFrom(event, panelPos, { w: node?.offsetWidth ?? 268, h: node?.offsetHeight ?? 40 },
-            (pos) => setBox({ ...boxRef.current, ...pos }));
+            (pos) => setBox({ ...boxRef.current, ...pos, placed: true }));
         }}
       >
         <span className="edit-panel-title">편집</span>
@@ -378,12 +391,6 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
         <button type="button" className="edit-panel-close" title="닫기" onClick={() => setOpen({ value: false })}>
           <IconClose size={11} />
         </button>
-      </div>
-      <div className="edit-panel-target">
-        {!hasTarget ? '본문에서 글을 드래그해 고르세요'
-          : metaTarget ? `고른 것: ${META_LABEL[metaTarget]} 전체`
-            : pickedImage ? '고른 이미지'
-              : `고른 글: ${picked.length > 22 ? `${picked.slice(0, 22)}…` : picked}`}
       </div>
       {/* 고른 글이 없으면 통째로 잠근다 — 무엇에 적용될지 모르는 채 누르지 않게 */}
       {metaTarget ? (
@@ -451,20 +458,21 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
 
       {panel === 'color' ? (
         <div className="popup-sub popup-sub-column">
+          {/* 고른 부분이 먼저 — 드래그한 뒤 고르는 것이니 가까운 쪽이 왼쪽 */}
           <div className="popup-scope">
-            <button
-              type="button"
-              className={scope === 'role' ? 'is-active' : ''}
-              onClick={() => setScope('role')}
-            >
-              {ROLE_LABEL[role]} 전체
-            </button>
             <button
               type="button"
               className={scope === 'selection' ? 'is-active' : ''}
               onClick={() => setScope('selection')}
             >
               선택 영역만
+            </button>
+            <button
+              type="button"
+              className={scope === 'role' ? 'is-active' : ''}
+              onClick={() => setScope('role')}
+            >
+              {ROLE_LABEL[role]} 전체
             </button>
           </div>
           <ColorPicker
@@ -705,7 +713,7 @@ export function SelectionPopup({ editorRoot }: { editorRoot: HTMLElement | null 
       )}
       <div
         className="edit-panel-resize"
-        title="끌어서 크기 조절 · 두 번 누르면 기본 크기"
+        title="끌어서 폭 조절 · 두 번 누르면 기본 폭"
         onPointerDown={startResize}
         onDoubleClick={() => setBox({ ...boxRef.current, w: 0, h: 0 })}
       />
