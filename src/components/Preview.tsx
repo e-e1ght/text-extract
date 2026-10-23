@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useStore } from '../store';
 import { AsciiArt, PatternFill } from './BackgroundArt';
-import { loadImage, measureAspect } from '../lib/ascii';
+import { measureAspect } from '../lib/ascii';
 import { PageBorder } from './PageBorder';
 import { PageGuides, usePagePlan } from './PageGuides';
 import { ensureWebFont } from '../lib/webfonts';
@@ -67,36 +67,21 @@ function characterCss(settings: Settings): string {
     .join('');
 }
 
-/** 배경 이미지가 판에서 차지하는 크기 비율 (가로, 세로). 채우기 방식마다 셈이 다르다 */
-function imageRatio(
-  layer: HTMLElement | null, bg: Background, size: [number, number] | null,
-): [number, number] {
-  if (!layer || !size || !size[0] || !size[1]) return [2, 2]; // 모르면 '판보다 큼' 으로 (예전 동작)
-  const cw = layer.offsetWidth;
-  const ch = layer.offsetHeight;
-  const [nw, nh] = size;
-  let w = nw;
-  let h = nh;
-  if (bg.imageFit === 'custom') {
-    w = (cw * bg.imageScale) / 100;
-    h = (w * nh) / nw;
-  } else if (bg.imageFit === 'cover' || bg.imageFit === 'contain') {
-    const k = bg.imageFit === 'cover' ? Math.max(cw / nw, ch / nh) : Math.min(cw / nw, ch / nh);
-    w = nw * k;
-    h = nh * k;
-  }
-  return [w / cw, h / ch];
+/**
+ * 드래그로 민 거리 → transform. % 는 판 자신의 크기 기준이라 판이 커져도 같은 자리에 있다.
+ * 값이 없으면(예전 저장본) 0 으로 본다.
+ */
+function shift(x: number | undefined, y: number | undefined): string | undefined {
+  if (!x && !y) return undefined;
+  return `translate(${x ?? 0}%, ${y ?? 0}%)`;
 }
 
-/** 아스키 아트 글 상자가 판에서 차지하는 크기 비율 (가로, 세로) */
-function asciiRatio(layer: HTMLElement | null): [number, number] {
-  const art = layer?.querySelector<HTMLElement>('.bg-ascii');
-  if (!art || !layer) return [0, 0];
-  // 아트는 크게 그려 scale 로 줄이므로 offsetWidth 가 아니라 화면에 그려진 크기로 잰다
-  const a = art.getBoundingClientRect();
-  const l = layer.getBoundingClientRect();
-  if (!l.width || !l.height) return [0, 0];
-  return [a.width / l.width, a.height / l.height];
+/**
+ * 끈 거리(판 크기 대비 비율)를 민 거리(%)에 더한다.
+ * 막지 않으면 그림을 판 밖으로 다 내보내 잃어버릴 수 있어, 판 두 배 거리까지만 민다.
+ */
+function pushed(value: number | undefined, frac: number): number {
+  return Math.min(200, Math.max(-200, (value ?? 0) + frac * 100));
 }
 
 /** #rrggbb + 불투명도 → rgba() (그림자 색) */
@@ -127,19 +112,20 @@ function backgroundLayer(bg: Background): ReactNode {
     case 'image':
       if (!bg.imageUrl) return <div className="bg-layer" style={{ ...base, background: bg.color }} />;
       return (
-        <div
-          className="bg-layer"
-          style={{
-            ...base,
-            backgroundColor: bg.color,
-            backgroundImage: `url("${bg.imageUrl}")`,
-            backgroundSize: bg.imageFit === 'repeat'
-              ? 'auto'
-              : bg.imageFit === 'custom' ? `${bg.imageScale}% auto` : bg.imageFit,
-            backgroundRepeat: bg.imageFit === 'repeat' ? 'repeat' : 'no-repeat',
-            backgroundPosition: `${bg.imageX}% ${bg.imageY}%`,
-          }}
-        />
+        <div className="bg-layer" style={{ ...base, backgroundColor: bg.color, overflow: 'hidden' }}>
+          <div
+            className="bg-shift"
+            style={{
+              transform: shift(bg.imageOffsetX, bg.imageOffsetY),
+              backgroundImage: `url("${bg.imageUrl}")`,
+              backgroundSize: bg.imageFit === 'repeat'
+                ? 'auto'
+                : bg.imageFit === 'custom' ? `${bg.imageScale}% auto` : bg.imageFit,
+              backgroundRepeat: bg.imageFit === 'repeat' ? 'repeat' : 'no-repeat',
+              backgroundPosition: `${bg.imageX}% ${bg.imageY}%`,
+            }}
+          />
+        </div>
       );
     case 'pattern':
       return (
@@ -159,6 +145,7 @@ function backgroundLayer(bg: Background): ReactNode {
     case 'ascii':
       return (
         <div className="bg-layer" style={{ ...base, background: bg.color, overflow: 'hidden' }}>
+          <div className="bg-shift" style={{ transform: shift(bg.asciiOffsetX, bg.asciiOffsetY) }}>
           <AsciiArt
             url={bg.asciiUrl}
             color={bg.asciiColor}
@@ -169,6 +156,7 @@ function backgroundLayer(bg: Background): ReactNode {
             x={bg.asciiX}
             y={bg.asciiY}
           />
+          </div>
         </div>
       );
     default:
@@ -329,6 +317,7 @@ function SlotBox({
           backgroundImage: `url("${slot.url}")`,
           backgroundSize: slot.fit === 'custom' ? `${slot.scale}% auto` : slot.fit,
           backgroundPosition: `${slot.x}% ${slot.y}%`,
+          transform: shift(slot.offsetX, slot.offsetY),
         }}
       />
       <PageBorder
@@ -362,14 +351,14 @@ function SlotBox({
           onPointerMove={(event) => {
             const start = drag.current;
             if (!start) return;
-            // background-position 은 값이 커질수록 이미지가 왼쪽·위로 간다 — 부호를 뒤집는다.
-            const dx = ((event.clientX - start.x) / start.w) * 100;
-            const dy = ((event.clientY - start.y) / start.h) * 100;
+            /*
+             * 예전에는 맞춤 위치(x·y)를 0~100 안에서 바꿔, 그림이 칸 끝에서 멈췄다.
+             * 이제는 민 거리만 바꾼다 — 끝 너머로도 가고, 넘친 곳은 칸이 자른다.
+             */
+            const fx = (event.clientX - start.x) / start.w;
+            const fy = (event.clientY - start.y) / start.h;
             drag.current = { ...start, x: event.clientX, y: event.clientY };
-            onChange({
-              x: Math.min(100, Math.max(0, slot.x - dx)),
-              y: Math.min(100, Math.max(0, slot.y - dy)),
-            });
+            onChange({ offsetX: pushed(slot.offsetX, fx), offsetY: pushed(slot.offsetY, fy) });
           }}
           onPointerUp={(event) => {
             drag.current = null;
@@ -403,19 +392,7 @@ function BgDrag({ bg, onChange, layer, refWidth }: {
   layer: () => HTMLElement | null;
   refWidth: number;
 }) {
-  const drag = useRef<{ x: number; y: number; w: number; h: number; rx: number; ry: number } | null>(null);
-
-  // 배경 이미지의 원래 크기 — 끌 때 '판 대비 그림 크기' 를 셈하려면 필요하다
-  const [imageSize, setImageSize] = useState<[number, number] | null>(null);
-  useEffect(() => {
-    let alive = true;
-    setImageSize(null);
-    if (bg.type !== 'image' || !bg.imageUrl) return undefined;
-    loadImage(bg.imageUrl)
-      .then((img) => { if (alive) setImageSize([img.naturalWidth, img.naturalHeight]); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [bg.type, bg.imageUrl]);
+  const drag = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
 
   const adjustingAscii = bg.type === 'ascii' && Boolean(bg.asciiUrl);
   const canAdjust = adjustingAscii || (bg.type === 'image' && Boolean(bg.imageUrl));
@@ -448,37 +425,27 @@ function BgDrag({ bg, onChange, layer, refWidth }: {
         });
       }}
       onPointerDown={(event) => {
-        const box = event.currentTarget.getBoundingClientRect();
-        // 판 대비 그림 크기 — 끄는 거리를 위치(%)로 바꾸는 데 쓴다 (아래 설명)
-        const [rx, ry] = adjustingAscii ? asciiRatio(layer()) : imageRatio(layer(), bg, imageSize);
-        drag.current = { x: event.clientX, y: event.clientY, w: box.width, h: box.height, rx, ry };
+        // 민 거리는 판(.bg-layer) 크기 대비 % 다. 흐림을 주면 판이 덮개보다 커서 판으로 잰다.
+        const box = (layer() ?? event.currentTarget).getBoundingClientRect();
+        drag.current = { x: event.clientX, y: event.clientY, w: box.width, h: box.height };
         event.currentTarget.setPointerCapture(event.pointerId);
       }}
       onPointerMove={(event) => {
         const start = drag.current;
-        if (!start) return;
+        if (!start || !start.w || !start.h) return;
         /*
-         * 위치 p% 는 '그림의 왼쪽(위) 끝이 판 안에서 (판 - 그림) × p% 만큼 들어간 자리' 다
-         * (CSS background-position 과 같은 규칙). 그래서 그림을 dx 만큼 옮기려면
-         * p 를 dx ÷ (판 - 그림) 만큼 바꾼다. 그림이 판보다 크면 이 값의 부호가 뒤집힌다.
-         * 예전에는 늘 뒤집어서, 그림을 판보다 작게 줄이면 끄는 반대쪽으로 갔다.
+         * 예전에는 맞춤 위치(background-position %)를 0~100 안에서 바꿨다. 그래서 그림이
+         * 판 끝에서 멈췄고, 꽉 채우기처럼 한쪽이 판과 딱 맞으면 그쪽으로는 아예 안 움직였다.
+         * 이제는 민 거리만 바꾼다 — 끄는 만큼 그대로 따라오고, 판 밖으로 나간 곳은 잘린다.
          */
         const fx = (event.clientX - start.x) / start.w;
         const fy = (event.clientY - start.y) / start.h;
         drag.current = { ...start, x: event.clientX, y: event.clientY };
-        const step = (frac: number, ratio: number) => (Math.abs(1 - ratio) < 0.01 ? 0 : (frac * 100) / (1 - ratio));
-        const clamp = (v: number) => Math.min(100, Math.max(0, v));
         if (adjustingAscii) {
-          onChange({
-            asciiX: clamp(bg.asciiX + step(fx, start.rx)),
-            asciiY: clamp(bg.asciiY + step(fy, start.ry)),
-          });
+          onChange({ asciiOffsetX: pushed(bg.asciiOffsetX, fx), asciiOffsetY: pushed(bg.asciiOffsetY, fy) });
           return;
         }
-        onChange({
-          imageX: clamp(bg.imageX + step(fx, start.rx)),
-          imageY: clamp(bg.imageY + step(fy, start.ry)),
-        });
+        onChange({ imageOffsetX: pushed(bg.imageOffsetX, fx), imageOffsetY: pushed(bg.imageOffsetY, fy) });
       }}
       onPointerUp={(event) => {
         drag.current = null;

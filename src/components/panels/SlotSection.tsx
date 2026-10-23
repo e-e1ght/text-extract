@@ -116,7 +116,7 @@ export function SlotSection() {
                     {adjusting ? '조절 끝내기' : '드래그로 위치·크기 조절'}
                   </button>
                   <button type="button" className="mini-button" disabled={!slot.url}
-                    onClick={() => change({ x: 50, y: 50 })}>
+                    onClick={() => change({ x: 50, y: 50, offsetX: 0, offsetY: 0 })}>
                     가운데로
                   </button>
                 </div>
@@ -127,10 +127,6 @@ export function SlotSection() {
                   휠을 굴리면 채우기가 <strong>직접 크기</strong>로 바뀝니다.
                 </Hint>
               ) : null}
-              <NumberSlider label="가로 위치" value={Math.round(slot.x)} min={0} max={100} unit="%"
-                onChange={(x) => change({ x })} />
-              <NumberSlider label="세로 위치" value={Math.round(slot.y)} min={0} max={100} unit="%"
-                onChange={(y) => change({ y })} />
 
               <hr className="divider" />
               <NumberSlider label="위 여백" value={slot.marginTop} min={0} max={200}

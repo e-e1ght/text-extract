@@ -47,9 +47,15 @@ export interface Background {
   imageFit: 'cover' | 'contain' | 'repeat' | 'custom';
   /** imageFit 이 custom 일 때의 가로 크기 (%) */
   imageScale: number;
-  /** 배경 이미지 위치 (%) — 드래그로 조절한다 */
+  /** 배경 이미지 맞춤 위치 (%) — background-position 규칙. 지금은 '가운데로' 만 바꾼다 */
   imageX: number;
   imageY: number;
+  /**
+   * 드래그로 민 거리 (판 크기 대비 %). 맞춤 위치(imageX/Y)만으로는 그림이 판 끝에서 멈추고,
+   * 꽉 채우기처럼 한쪽이 판과 딱 맞으면 그쪽으로는 아예 움직이지 않아 따로 둔다. 넘친 곳은 잘린다.
+   */
+  imageOffsetX: number;
+  imageOffsetY: number;
   /* 패턴 — 바탕은 color, 그 위에 무늬를 깐다 */
   patternKind: PatternKind;
   /** 무늬 크기 배율 (%). 무늬마다 기본 크기가 달라 배율로 맞춘다 */
@@ -73,6 +79,9 @@ export interface Background {
   /** 아스키 아트 가운데의 위치 (%) — 드래그로 조절한다 */
   asciiX: number;
   asciiY: number;
+  /** 드래그로 민 거리 (판 크기 대비 %) — imageOffsetX/Y 와 같은 까닭으로 따로 둔다 */
+  asciiOffsetX: number;
+  asciiOffsetY: number;
   overlayColor: string;
   overlayOpacity: number;
   blur: number;
@@ -227,9 +236,12 @@ export interface ImageSlot {
   fit: 'cover' | 'contain' | 'custom';
   /** fit 이 custom 일 때 칸 너비 대비 크기 (%) */
   scale: number;
-  /** 이미지 위치 (%) — 배경처럼 드래그로 조절한다 */
+  /** 이미지 맞춤 위치 (%) — 배경의 imageX/Y 와 같다 */
   x: number;
   y: number;
+  /** 드래그로 민 거리 (칸 크기 대비 %) — 배경의 imageOffsetX/Y 와 같다 */
+  offsetX: number;
+  offsetY: number;
   marginTop: number;
   marginRight: number;
   marginBottom: number;

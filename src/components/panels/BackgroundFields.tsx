@@ -122,7 +122,7 @@ export function BackgroundFields({ bg, onChange, adjusting = false, onAdjust }: 
                 type="button"
                 className="mini-button"
                 disabled={!bg.imageUrl}
-                onClick={() => onChange({ imageX: 50, imageY: 50 })}
+                onClick={() => onChange({ imageX: 50, imageY: 50, imageOffsetX: 0, imageOffsetY: 0 })}
               >
                 가운데로
               </button>
@@ -135,10 +135,6 @@ export function BackgroundFields({ bg, onChange, adjusting = false, onAdjust }: 
               조절하는 동안에는 본문을 편집할 수 없습니다.
             </Hint>
           ) : null}
-          <NumberSlider label="가로 위치" value={Math.round(bg.imageX)} min={0} max={100} unit="%"
-            onChange={(imageX) => onChange({ imageX })} />
-          <NumberSlider label="세로 위치" value={Math.round(bg.imageY)} min={0} max={100} unit="%"
-            onChange={(imageY) => onChange({ imageY })} />
 
           <Hint>GIF 는 미리보기에서 움직이지만, 이미지·PDF 로 저장하면 한 장면으로 고정됩니다.</Hint>
         </>
@@ -252,7 +248,7 @@ export function BackgroundFields({ bg, onChange, adjusting = false, onAdjust }: 
                 type="button"
                 className="mini-button"
                 disabled={!bg.asciiUrl}
-                onClick={() => onChange({ asciiX: 50, asciiY: 50 })}
+                onClick={() => onChange({ asciiX: 50, asciiY: 50, asciiOffsetX: 0, asciiOffsetY: 0 })}
               >
                 가운데로
               </button>
@@ -264,12 +260,6 @@ export function BackgroundFields({ bg, onChange, adjusting = false, onAdjust }: 
               조절하는 동안에는 본문을 편집할 수 없습니다.
             </Hint>
           ) : null}
-          <NumberSlider label="가로 위치" value={Math.round(bg.asciiX)} min={0} max={100} unit="%"
-            hint="0 은 왼쪽 끝, 100 은 오른쪽 끝에 맞춤"
-            onChange={(asciiX) => onChange({ asciiX })} />
-          <NumberSlider label="세로 위치" value={Math.round(bg.asciiY)} min={0} max={100} unit="%"
-            hint="0 은 위 끝, 100 은 아래 끝에 맞춤"
-            onChange={(asciiY) => onChange({ asciiY })} />
         </>
       ) : null}
 

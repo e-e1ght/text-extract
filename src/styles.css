@@ -413,6 +413,8 @@ body {
   box-shadow: 0 2px 24px rgba(10, 12, 18, 0.22);
 }
 .bg-layer { position: absolute; z-index: 0; }
+/* 드래그로 민 배경 이미지·아스키 아트 — 판과 같은 크기로 겹쳐 두고 transform 으로만 옮긴다 */
+.bg-shift { position: absolute; inset: 0; }
 /* 무늬는 판을 꽉 채운다 */
 .bg-pattern { position: absolute; inset: 0; display: block; }
 /* 아스키 아트 — 자리는 BackgroundArt 가 배경 이미지와 같은 규칙으로 잡는다 */
