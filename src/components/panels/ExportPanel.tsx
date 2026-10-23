@@ -117,7 +117,7 @@ export function ExportPanel({
 
       {plan ? (
         <p className="status-line" role="status">
-          {plan.pages}장으로 나눠 저장합니다 ({options.splitRatio}). 바꾸려면 내지 옵션 › 이미지 비율.
+          {plan.pages}장으로 나눠 저장합니다 ({options.splitRatio}{options.format === 'pdf' ? '' : ', zip 파일 하나로'}). 바꾸려면 내지 옵션 › 이미지 비율.
         </p>
       ) : null}
 
@@ -131,7 +131,7 @@ export function ExportPanel({
       </div>
       {status ? <p className="status-line" role="status">{status}</p> : null}
       {'showSaveFilePicker' in window ? (
-        <Hint>저장할 위치를 묻는 창이 뜹니다. 여러 장으로 나뉘면 담을 폴더를 고릅니다.</Hint>
+        <Hint>저장할 위치를 묻는 창이 뜹니다.</Hint>
       ) : null}
       {exported.length > 0 ? (
         <p className="export-again">

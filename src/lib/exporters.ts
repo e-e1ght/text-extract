@@ -289,17 +289,17 @@ function safeName(name: string): string {
   return cleaned || '발췌';
 }
 
-/** 만든 그림을 써 넣을 곳 (저장 창으로 고른 파일·폴더) */
-export type SaveTarget = (blob: Blob, name: string) => Promise<void>;
+/**
+ * 만든 그림을 써 넣을 곳 (저장 창으로 고른 파일). zip 은 저장 창을 zip 으로 열었는지 —
+ * 장 수는 그리기 전에 어림한 값이라, 실제 장 수가 달라도 고른 파일 형식을 따라야 한다.
+ */
+export type SaveTarget = ((blob: Blob, name: string) => Promise<void>) & { zip: boolean };
 
 interface WritableFile {
   createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void> }>;
 }
 interface PickerWindow {
   showSaveFilePicker?: (options: unknown) => Promise<WritableFile>;
-  showDirectoryPicker?: (options: unknown) => Promise<{
-    getFileHandle: (name: string, options?: { create?: boolean }) => Promise<WritableFile>;
-  }>;
 }
 
 const FILE_TYPES: Record<ExportOptions['format'], { description: string; accept: Record<string, string[]> }> = {
@@ -307,6 +307,12 @@ const FILE_TYPES: Record<ExportOptions['format'], { description: string; accept:
   jpeg: { description: 'JPG 이미지', accept: { 'image/jpeg': ['.jpg', '.jpeg'] } },
   pdf: { description: 'PDF 문서', accept: { 'application/pdf': ['.pdf'] } },
 };
+const ZIP_TYPE = { description: 'ZIP 압축 파일', accept: { 'application/zip': ['.zip'] } };
+
+/** 여러 장으로 나뉜 그림은 zip 하나로 묶는다 (PDF 는 한 파일 안에 여러 쪽이라 묶지 않는다) */
+function bundlesPages(pages: number, options: ExportOptions): boolean {
+  return pages > 1 && options.format !== 'pdf';
+}
 
 async function writeTo(handle: WritableFile, blob: Blob): Promise<void> {
   const writable = await handle.createWritable();
@@ -320,7 +326,11 @@ async function writeTo(handle: WritableFile, blob: Blob): Promise<void> {
  *
  * 다운로드로 내려받으면 브라우저가 두 번째부터 소리 없이 버리는 일이 있었다(웨일 등 —
  * '저장했습니다' 는 뜨는데 파일이 없다). 저장 창으로 고른 파일에 직접 쓰면 다운로드를
- * 거치지 않으므로 막힐 일이 없다. 여러 장이면 폴더를 한 번 고른다.
+ * 거치지 않으므로 막힐 일이 없다.
+ *
+ * 여러 장이면 zip 파일 하나로 묶어 저장한다. 예전에는 폴더를 고르게 했는데, 크롬은 폴더 고르기 창에서
+ * 다운로드·바탕 화면 같은 시스템 폴더를 '시스템 파일이 있다' 며 막아 그런 곳에는 저장할 수 없었다.
+ * 파일 저장 창은 그런 제한이 없다.
  *
  * 저장 창을 쓸 수 없으면 null (다운로드로 넘어간다), 사용자가 닫았으면 'cancelled'.
  */
@@ -334,30 +344,13 @@ export async function pickSaveTarget(
   const ext = options.format === 'jpeg' ? 'jpg' : options.format;
 
   try {
-    if (pages === 1 || options.format === 'pdf') {
-      if (!picker.showSaveFilePicker) return null;
-      const handle = await picker.showSaveFilePicker({
-        suggestedName: `${safeName(options.fileName)}.${ext}`,
-        types: [FILE_TYPES[options.format]],
-      });
-      return (blob) => writeTo(handle, blob);
-    }
-    if (!picker.showDirectoryPicker) return null;
-    const folder = await picker.showDirectoryPicker({ mode: 'readwrite', id: 'text-extract-export' });
-    return async (blob, name) => {
-      // 같은 이름이 이미 있으면 덮어쓰지 않고 (2), (3)… 을 붙인다.
-      const dot = name.lastIndexOf('.');
-      let candidate = name;
-      for (let n = 2; n < 1000; n += 1) {
-        try {
-          await folder.getFileHandle(candidate);
-          candidate = `${name.slice(0, dot)} (${n})${name.slice(dot)}`;
-        } catch {
-          break;
-        }
-      }
-      await writeTo(await folder.getFileHandle(candidate, { create: true }), blob);
-    };
+    if (!picker.showSaveFilePicker) return null;
+    const zip = bundlesPages(pages, options);
+    const handle = await picker.showSaveFilePicker({
+      suggestedName: `${safeName(options.fileName)}.${zip ? 'zip' : ext}`,
+      types: [zip ? ZIP_TYPE : FILE_TYPES[options.format]],
+    });
+    return Object.assign((blob: Blob) => writeTo(handle, blob), { zip });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') return 'cancelled';
     return null;
@@ -444,13 +437,24 @@ export async function exportNode(
         return;
       }
 
+      const ext = format === 'jpeg' ? 'jpg' : 'png';
+      if (!(target ? target.zip : bundlesPages(pager.pages, options))) {
+        pager.show(0);
+        await deliver(await shot(format), `${base}.${ext}`);
+        return;
+      }
+
+      // 여러 장은 zip 하나로 — 다운로드가 한 번뿐이라 '여러 파일 자동 다운로드' 로 막힐 일도 없다.
+      const entries: Record<string, Uint8Array> = {};
       for (let page = 0; page < pager.pages; page += 1) {
         pager.show(page);
         const blob = await shot(format);
-        await deliver(blob, `${base}${suffix(page)}.${format === 'jpeg' ? 'jpg' : 'png'}`);
-        // 브라우저가 연속 다운로드를 막지 않도록 살짝 간격을 둔다.
-        if (page < pager.pages - 1) await new Promise((r) => setTimeout(r, 350));
+        entries[`${base}${suffix(page)}.${ext}`] = new Uint8Array(await blob.arrayBuffer());
       }
+      // PNG·JPG 는 이미 압축돼 있어 다시 줄여 봐야 시간만 든다 — 묶기만 한다 (level 0).
+      const { zipSync } = await import('fflate');
+      const zipped = zipSync(entries, { level: 0 });
+      await deliver(new Blob([zipped as Uint8Array<ArrayBuffer>], { type: 'application/zip' }), `${base}.zip`);
     } finally {
       pager.restore();
     }
