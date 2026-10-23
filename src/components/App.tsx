@@ -6,7 +6,8 @@ import { useStore } from '../store';
 import { Editor, readPlainText } from './Editor';
 import { Preview } from './Preview';
 import { SelectionPopup } from './SelectionPopup';
-import { IconMoon, IconRedo, IconSun, IconUndo } from './icons';
+import { HelpTour } from './HelpTour';
+import { IconHelp, IconMoon, IconRedo, IconSun, IconUndo } from './icons';
 import { Workspace } from './Workspace';
 import { Stickers } from './Stickers';
 
@@ -23,6 +24,8 @@ export function App() {
   /** 확대한 미리보기가 차지할 자리를 잡으려면 실제 높이를 알아야 한다. */
   const [previewHeight, setPreviewHeight] = useState(0);
   const saveTimer = useRef<number | undefined>(undefined);
+  /** 도움말은 눌렀을 때만 연다 — 처음 들어온 사람 앞을 막아서지 않게 */
+  const [helpOpen, setHelpOpen] = useState(false);
 
   /**
    * 에디터는 테마를 바꿀 때 언마운트된다. 가장 최근 내용을 여기에 담아 두고
@@ -164,7 +167,21 @@ export function App() {
             <button
               type="button"
               className="top-button"
+              title="도움말"
+              data-tour="help"
+              onClick={() => {
+                // 좁은 화면에서는 도구 패널이 미리보기를 덮어, 가리키는 곳이 안 보인다
+                if (window.matchMedia('(max-width: 900px)').matches) set('activePanel', null);
+                setHelpOpen(true);
+              }}
+            >
+              <IconHelp />
+            </button>
+            <button
+              type="button"
+              className="top-button"
               title="되돌리기 (Ctrl+Z)"
+              data-tour="undo"
               disabled={!historyState.undo}
               onClick={undo}
             >
@@ -174,6 +191,7 @@ export function App() {
               type="button"
               className="top-button"
               title="다시 실행 (Ctrl+Shift+Z)"
+              data-tour="redo"
               disabled={!historyState.redo}
               onClick={redo}
             >
@@ -210,6 +228,7 @@ export function App() {
               {/* 확대해도 스크롤 범위가 맞도록 배율만큼 자리를 잡아 둔다 */}
               <div
                 className="zoom-frame"
+                data-tour="preview"
                 style={{
                   width: settings.layout.width * zoom,
                   height: previewHeight > 0 ? previewHeight * zoom : undefined,
@@ -276,6 +295,8 @@ export function App() {
           ) : null}
         </main>
       </div>
+
+      {helpOpen ? <HelpTour onClose={() => setHelpOpen(false)} /> : null}
     </div>
   );
 }

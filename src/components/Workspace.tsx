@@ -66,6 +66,7 @@ export function Workspace({ editorRoot, captureNode, detectedNames }: WorkspaceP
           <button
             key={item.id}
             type="button"
+            data-tour={`rail-${item.id}`}
             className={`rail-button${active === item.id ? ' is-active' : ''}`}
             aria-pressed={active === item.id}
             onClick={() => set('activePanel', active === item.id ? null : item.id)}

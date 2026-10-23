@@ -10,6 +10,7 @@
  */
 import {
   faAlignLeft,
+  faCircleQuestion,
   faCommentDots,
   faCropSimple,
   faFloppyDisk,
@@ -55,4 +56,5 @@ export const IconRedo = ({ size }: IconProps) => <Glyph icon={faRotateRight} siz
 export const IconSun = ({ size }: IconProps) => <Glyph icon={faSun} size={size} />;
 export const IconMoon = ({ size }: IconProps) => <Glyph icon={faMoon} size={size} />;
 export const IconQuote = ({ size }: IconProps) => <Glyph icon={faQuoteLeft} size={size} />;
+export const IconHelp = ({ size }: IconProps) => <Glyph icon={faCircleQuestion} size={size} />;
 export const IconEdit = ({ size }: IconProps) => <Glyph icon={faPenToSquare} size={size} />;
