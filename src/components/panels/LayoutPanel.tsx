@@ -9,7 +9,7 @@ import { BackgroundFields } from './BackgroundFields';
 import type { AlignY, SplitRatio } from '../../types';
 
 export function LayoutPanel({ captureNode }: { captureNode: HTMLElement | null }) {
-  const { settings, patch, setSettings } = useStore();
+  const { settings, patch, setSettings, adjustingBox, setAdjustingBox } = useStore();
   const layout = settings.layout;
   const options = settings.exportOptions;
   const ratioChoice: 'auto' | 'fixed' | 'split' = options.splitRatio !== 'off' ? 'split' : layout.ratioMode;
@@ -173,6 +173,8 @@ export function LayoutPanel({ captureNode }: { captureNode: HTMLElement | null }
           <BackgroundFields
             bg={box.background}
             onChange={(change) => setBox({ background: { ...box.background, ...change } })}
+            adjusting={adjustingBox}
+            onAdjust={setAdjustingBox}
           />
           <NumberSlider label="배경 불투명도" value={Math.round(box.opacity * 100)} min={0} max={100} unit="%"
             hint="낮추면 결과물 배경이 비칩니다"

@@ -25,6 +25,8 @@ export function App() {
   const saveTimer = useRef<number | undefined>(undefined);
   /** 도움말은 눌렀을 때만 연다 — 처음 들어온 사람 앞을 막아서지 않게 */
   const [helpOpen, setHelpOpen] = useState(false);
+  /** 편집 단추가 들어갈 상단 막대 자리 — 단추는 편집 패널(SelectionPopup)이 그린다 */
+  const [launcherSlot, setLauncherSlot] = useState<HTMLSpanElement | null>(null);
 
   /**
    * 에디터는 테마를 바꿀 때 언마운트된다. 가장 최근 내용을 여기에 담아 두고
@@ -195,6 +197,7 @@ export function App() {
               <IconRedo />
             </button>
             <span className="top-sep" />
+            <span className="top-slot" ref={setLauncherSlot} />
             <button
               type="button"
               className="top-button"
@@ -284,7 +287,11 @@ export function App() {
             </button>
           </div>
 
-          <SelectionPopup editorRoot={editorRoot} stage={stageNode?.parentElement ?? null} />
+          <SelectionPopup
+            editorRoot={editorRoot}
+            stage={stageNode?.parentElement ?? null}
+            launcherSlot={launcherSlot}
+          />
 
           {saveError ? (
             <div className="save-warning" role="alert">{saveError}</div>

@@ -95,7 +95,13 @@ function dragFrom(
  * 단추와 패널 모두 끌어서 옮길 수 있고, 패널은 오른쪽 아래 모서리를 끌어 크기를 바꾼다.
  * 열려 있는 동안은 계속 떠 있고, 본문에서 고른 글이 없으면 단추들이 잠긴다.
  */
-export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement | null; stage: HTMLElement | null }) {
+export function SelectionPopup({ editorRoot, stage, launcherSlot }: {
+  editorRoot: HTMLElement | null;
+  /** 작업 영역 — 패널을 처음 열 자리를 정하는 데 쓴다 */
+  stage: HTMLElement | null;
+  /** 편집 단추를 그릴 자리 (상단 막대) */
+  launcherSlot: HTMLElement | null;
+}) {
   const { settings, patch, upsertCharacter } = useStore();
   /** 본문에서 고른 글이 있는지 (없으면 단추를 잠근다) */
   const [hasTarget, setHasTarget] = useState(false);
@@ -327,21 +333,21 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
       const w = box.w || 268;
       /*
        * 처음 열 때, 또는 기억해 둔 자리가 작업 영역 밖일 때(도구를 반대쪽으로 옮겼거나 창을 줄임)는
-       * 편집 단추 바로 아래로 데려온다 — 도구 패널 위에 덮여 열리지 않게.
+       * 작업 영역 오른쪽 위로 데려온다 — 도구 패널 위에 덮여 열리지 않게.
        */
       const outside = box.x < r.left || box.x + w > r.right || box.y < r.top || box.y > r.bottom - 40;
       if (!box.placed || outside) {
-        setBox({ ...boxRef.current, x: Math.round(r.right - w - 14), y: Math.round(r.top + 56), placed: true });
+        setBox({ ...boxRef.current, x: Math.round(r.right - w - 14), y: Math.round(r.top + 14), placed: true });
       }
     }
     setOpen({ value: !open.value });
   };
 
   /*
-   * 편집 단추는 옮기지 않는다 — 작업 영역 오른쪽 위에 박아 둔다.
-   * 작업 영역 안에 그리므로, 도구를 오른쪽으로 옮기거나 폭을 바꿔도 도구 패널과 겹치지 않는다.
+   * 편집 단추는 상단 막대(다크/라이트 단추 왼쪽)에 둔다. 예전에는 작업 영역 오른쪽 위에 떠 있어
+   * 미리보기 오른쪽 위를 가렸다.
    */
-  const launcherButton = stage ? createPortal(
+  const launcherButton = launcherSlot ? createPortal(
     <button
       type="button"
       className={`edit-launcher${open.value ? ' is-open' : ''}`}
@@ -354,7 +360,7 @@ export function SelectionPopup({ editorRoot, stage }: { editorRoot: HTMLElement 
       <IconEdit />
       <span>편집</span>
     </button>,
-    stage,
+    launcherSlot,
   ) : null;
   if (!open.value) return launcherButton;
 

@@ -69,9 +69,8 @@ function characterCss(settings: Settings): string {
 
 /** 배경 이미지가 판에서 차지하는 크기 비율 (가로, 세로). 채우기 방식마다 셈이 다르다 */
 function imageRatio(
-  capture: HTMLElement | null, bg: Settings['background'], size: [number, number] | null,
+  layer: HTMLElement | null, bg: Background, size: [number, number] | null,
 ): [number, number] {
-  const layer = capture?.querySelector<HTMLElement>('.bg-layer');
   if (!layer || !size || !size[0] || !size[1]) return [2, 2]; // 모르면 '판보다 큼' 으로 (예전 동작)
   const cw = layer.offsetWidth;
   const ch = layer.offsetHeight;
@@ -90,9 +89,8 @@ function imageRatio(
 }
 
 /** 아스키 아트 글 상자가 판에서 차지하는 크기 비율 (가로, 세로) */
-function asciiRatio(capture: HTMLElement | null): [number, number] {
-  const art = capture?.querySelector<HTMLElement>('.bg-ascii');
-  const layer = art?.parentElement;
+function asciiRatio(layer: HTMLElement | null): [number, number] {
+  const art = layer?.querySelector<HTMLElement>('.bg-ascii');
   if (!art || !layer) return [0, 0];
   // 아트는 크게 그려 scale 로 줄이므로 offsetWidth 가 아니라 화면에 그려진 크기로 잰다
   const a = art.getBoundingClientRect();
@@ -394,6 +392,110 @@ interface PreviewProps {
   children: ReactNode;
 }
 
+/**
+ * 배경을 미리보기에서 끌어 옮기고 휠로 크기를 바꾸는 덮개. 결과물 배경과 글 상자 배경이 같이 쓴다.
+ * layer 는 그 배경 판(.bg-layer)을 돌려준다 — 그림이 판에서 차지하는 비율을 재는 데 쓴다.
+ * 결과물 배경 판을 찾을 때 그냥 '.bg-layer' 로 찾으면 글 상자 안의 판이 걸릴 수 있어 직접 넘긴다.
+ */
+function BgDrag({ bg, onChange, layer, refWidth }: {
+  bg: Background;
+  onChange: (change: Partial<Background>) => void;
+  layer: () => HTMLElement | null;
+  refWidth: number;
+}) {
+  const drag = useRef<{ x: number; y: number; w: number; h: number; rx: number; ry: number } | null>(null);
+
+  // 배경 이미지의 원래 크기 — 끌 때 '판 대비 그림 크기' 를 셈하려면 필요하다
+  const [imageSize, setImageSize] = useState<[number, number] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setImageSize(null);
+    if (bg.type !== 'image' || !bg.imageUrl) return undefined;
+    loadImage(bg.imageUrl)
+      .then((img) => { if (alive) setImageSize([img.naturalWidth, img.naturalHeight]); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [bg.type, bg.imageUrl]);
+
+  const adjustingAscii = bg.type === 'ascii' && Boolean(bg.asciiUrl);
+  const canAdjust = adjustingAscii || (bg.type === 'image' && Boolean(bg.imageUrl));
+  if (!canAdjust) return null;
+
+  return (
+    <div
+      className="bg-drag"
+      data-export-ignore="true"
+      title="드래그해서 위치를, 휠을 굴려 크기를 조절하세요"
+      onWheel={(event) => {
+        event.preventDefault();
+        if (adjustingAscii) {
+          // 아스키 아트의 크기는 곧 글자 크기다 (가로 글자 수는 그대로)
+          const next = bg.asciiFontSize * (event.deltaY > 0 ? 0.94 : 1.06);
+          onChange({ asciiFontSize: Math.round(Math.min(40, Math.max(2, next)) * 10) / 10 });
+          return;
+        }
+        /*
+         * 크기는 '직접 크기 지정' 일 때만 뜻이 있다.
+         * 꽉 채우기 상태에서 휠을 굴리면 그 자리에서 직접 지정으로 넘어간다
+         * (100% = 지금 보이는 너비라 크기가 튀지 않는다).
+         */
+        const custom = bg.imageFit === 'custom';
+        const base = custom ? bg.imageScale : 100;
+        const next = Math.min(400, Math.max(10, base * (event.deltaY > 0 ? 0.94 : 1.06)));
+        onChange({
+          imageFit: 'custom',
+          imageScale: Math.round(next),
+        });
+      }}
+      onPointerDown={(event) => {
+        const box = event.currentTarget.getBoundingClientRect();
+        // 판 대비 그림 크기 — 끄는 거리를 위치(%)로 바꾸는 데 쓴다 (아래 설명)
+        const [rx, ry] = adjustingAscii ? asciiRatio(layer()) : imageRatio(layer(), bg, imageSize);
+        drag.current = { x: event.clientX, y: event.clientY, w: box.width, h: box.height, rx, ry };
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        const start = drag.current;
+        if (!start) return;
+        /*
+         * 위치 p% 는 '그림의 왼쪽(위) 끝이 판 안에서 (판 - 그림) × p% 만큼 들어간 자리' 다
+         * (CSS background-position 과 같은 규칙). 그래서 그림을 dx 만큼 옮기려면
+         * p 를 dx ÷ (판 - 그림) 만큼 바꾼다. 그림이 판보다 크면 이 값의 부호가 뒤집힌다.
+         * 예전에는 늘 뒤집어서, 그림을 판보다 작게 줄이면 끄는 반대쪽으로 갔다.
+         */
+        const fx = (event.clientX - start.x) / start.w;
+        const fy = (event.clientY - start.y) / start.h;
+        drag.current = { ...start, x: event.clientX, y: event.clientY };
+        const step = (frac: number, ratio: number) => (Math.abs(1 - ratio) < 0.01 ? 0 : (frac * 100) / (1 - ratio));
+        const clamp = (v: number) => Math.min(100, Math.max(0, v));
+        if (adjustingAscii) {
+          onChange({
+            asciiX: clamp(bg.asciiX + step(fx, start.rx)),
+            asciiY: clamp(bg.asciiY + step(fy, start.ry)),
+          });
+          return;
+        }
+        onChange({
+          imageX: clamp(bg.imageX + step(fx, start.rx)),
+          imageY: clamp(bg.imageY + step(fy, start.ry)),
+        });
+      }}
+      onPointerUp={(event) => {
+        drag.current = null;
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }}
+      onPointerCancel={() => { drag.current = null; }}
+    >
+      <span className="bg-drag-badge">
+        배경 조절 중 — 드래그로 위치, 휠로 크기
+        {adjustingAscii
+          ? ` · ${Math.round((bg.asciiColumns * measureAspect() * bg.asciiFontSize * 100) / refWidth)}%`
+          : bg.imageFit === 'custom' ? ` · ${Math.round(bg.imageScale)}%` : ''}
+      </span>
+    </div>
+  );
+}
+
 export function Preview({ settings, captureRef, children }: PreviewProps) {
   const { layout, typography, roles, background, meta } = settings;
   // 나눠 저장할 자리를 미리보기에 점선으로 보이려면 결과물 상자를 직접 알아야 한다
@@ -403,7 +505,7 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
     captureRef(node);
     setCaptureNode(node);
   }, [captureRef]);
-  const { patch, adjustingImage, adjustingSlot } = useStore();
+  const { patch, adjustingImage, adjustingBox, adjustingSlot } = useStore();
   const slots = settings.imageSlots;
   const slotOn = (side: SlotSide) => slots.enabled && slots[side].enabled;
   const renderSlot = (side: SlotSide) => (slotOn(side) ? (
@@ -415,28 +517,12 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
     />
   ) : null);
   const scale = typography.horizontalScale;
-  const drag = useRef<{ x: number; y: number; w: number; h: number; rx: number; ry: number } | null>(null);
-
-  // 배경 이미지의 원래 크기 — 끌 때 '판 대비 그림 크기' 를 셈하려면 필요하다
-  const [imageSize, setImageSize] = useState<[number, number] | null>(null);
-  useEffect(() => {
-    let alive = true;
-    setImageSize(null);
-    if (background.type !== 'image' || !background.imageUrl) return undefined;
-    loadImage(background.imageUrl)
-      .then((img) => { if (alive) setImageSize([img.naturalWidth, img.naturalHeight]); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [background.type, background.imageUrl]);
+  const boxRef = useRef<HTMLDivElement | null>(null);
 
   const css = useMemo(() => characterCss(settings), [settings]);
 
   // 고른 본문 글꼴만 받아 온다 (미리 여덟 벌을 받아 두지 않는다)
   useEffect(() => { ensureWebFont(typography.fontFamily); }, [typography.fontFamily]);
-
-  const adjustingAscii = adjustingImage && background.type === 'ascii' && Boolean(background.asciiUrl);
-  const canAdjust = adjustingAscii
-    || (adjustingImage && background.type === 'image' && Boolean(background.imageUrl));
 
   const frameStyle: CSSProperties = {
     width: `${layout.width}px`,
@@ -529,78 +615,13 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
     >
       {css ? <style>{css}</style> : null}
       {backgroundLayer(settings.background)}
-      {canAdjust ? (
-        <div
-          className="bg-drag"
-          data-export-ignore="true"
-          title="드래그해서 위치를, 휠을 굴려 크기를 조절하세요"
-          onWheel={(event) => {
-            event.preventDefault();
-            if (adjustingAscii) {
-              // 아스키 아트의 크기는 곧 글자 크기다 (가로 글자 수는 그대로)
-              const next = background.asciiFontSize * (event.deltaY > 0 ? 0.94 : 1.06);
-              patch('background', { asciiFontSize: Math.round(Math.min(40, Math.max(2, next)) * 10) / 10 });
-              return;
-            }
-            /*
-             * 크기는 '직접 크기 지정' 일 때만 뜻이 있다.
-             * 꽉 채우기 상태에서 휠을 굴리면 그 자리에서 직접 지정으로 넘어간다
-             * (100% = 지금 보이는 너비라 크기가 튀지 않는다).
-             */
-            const custom = background.imageFit === 'custom';
-            const base = custom ? background.imageScale : 100;
-            const next = Math.min(400, Math.max(10, base * (event.deltaY > 0 ? 0.94 : 1.06)));
-            patch('background', {
-              imageFit: 'custom',
-              imageScale: Math.round(next),
-            });
-          }}
-          onPointerDown={(event) => {
-            const box = event.currentTarget.getBoundingClientRect();
-            // 판 대비 그림 크기 — 끄는 거리를 위치(%)로 바꾸는 데 쓴다 (아래 설명)
-            const [rx, ry] = adjustingAscii ? asciiRatio(captureNode) : imageRatio(captureNode, background, imageSize);
-            drag.current = { x: event.clientX, y: event.clientY, w: box.width, h: box.height, rx, ry };
-            event.currentTarget.setPointerCapture(event.pointerId);
-          }}
-          onPointerMove={(event) => {
-            const start = drag.current;
-            if (!start) return;
-            /*
-             * 위치 p% 는 '그림의 왼쪽(위) 끝이 판 안에서 (판 - 그림) × p% 만큼 들어간 자리' 다
-             * (CSS background-position 과 같은 규칙). 그래서 그림을 dx 만큼 옮기려면
-             * p 를 dx ÷ (판 - 그림) 만큼 바꾼다. 그림이 판보다 크면 이 값의 부호가 뒤집힌다.
-             * 예전에는 늘 뒤집어서, 그림을 판보다 작게 줄이면 끄는 반대쪽으로 갔다.
-             */
-            const fx = (event.clientX - start.x) / start.w;
-            const fy = (event.clientY - start.y) / start.h;
-            drag.current = { ...start, x: event.clientX, y: event.clientY };
-            const step = (frac: number, ratio: number) => (Math.abs(1 - ratio) < 0.01 ? 0 : (frac * 100) / (1 - ratio));
-            const clamp = (v: number) => Math.min(100, Math.max(0, v));
-            if (adjustingAscii) {
-              patch('background', {
-                asciiX: clamp(background.asciiX + step(fx, start.rx)),
-                asciiY: clamp(background.asciiY + step(fy, start.ry)),
-              });
-              return;
-            }
-            patch('background', {
-              imageX: clamp(background.imageX + step(fx, start.rx)),
-              imageY: clamp(background.imageY + step(fy, start.ry)),
-            });
-          }}
-          onPointerUp={(event) => {
-            drag.current = null;
-            event.currentTarget.releasePointerCapture(event.pointerId);
-          }}
-          onPointerCancel={() => { drag.current = null; }}
-        >
-          <span className="bg-drag-badge">
-            배경 조절 중 — 드래그로 위치, 휠로 크기
-            {adjustingAscii
-              ? ` · ${Math.round((background.asciiColumns * measureAspect() * background.asciiFontSize * 100) / layout.width)}%`
-              : background.imageFit === 'custom' ? ` · ${Math.round(background.imageScale)}%` : ''}
-          </span>
-        </div>
+      {adjustingImage ? (
+        <BgDrag
+          bg={background}
+          onChange={(change) => patch('background', change)}
+          layer={() => captureNode?.querySelector<HTMLElement>(':scope > .bg-layer') ?? null}
+          refWidth={layout.width}
+        />
       ) : null}
       {background.overlayOpacity > 0 ? (
         <div
@@ -618,6 +639,7 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
         <div className="te-middle">
           {renderSlot('left')}
           <div
+            ref={boxRef}
             className={box.enabled ? 'te-main te-box' : 'te-main'}
             style={box.enabled ? boxStyle : undefined}
           >
@@ -628,6 +650,14 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
                   {backgroundLayer(box.background)}
                 </div>
                 <PageBorder border={{ ...box.border, inset: 0 }} radius={box.radius} />
+                {adjustingBox ? (
+                  <BgDrag
+                    bg={box.background}
+                    onChange={(change) => patch('textBox', { background: { ...box.background, ...change } })}
+                    layer={() => boxRef.current?.querySelector<HTMLElement>('.te-box-bg > .bg-layer') ?? null}
+                    refWidth={layout.width}
+                  />
+                ) : null}
               </>
             ) : null}
             {/* 제목·제작자도 장평과 본문 서식을 함께 받도록 같은 래퍼 안에 둔다 */}

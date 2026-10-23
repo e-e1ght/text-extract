@@ -954,30 +954,29 @@ body {
  * 편집 패널 — '편집' 단추로 열고, 머리를 끌어 옮기고, 오른쪽 아래 모서리를 끌어 크기를 바꾼다.
  * 화면 좌표(fixed)로 둔다: 스크롤해도 같은 자리에 떠 있다.
  */
-/* 작업 영역 오른쪽 위에 박아 둔다 (작업 영역 안에 그려서 도구 패널과 겹치지 않는다) */
+/* 상단 막대의 편집 단추 — 다크/라이트 단추 왼쪽. 아이콘만 있는 이웃 단추보다 자주 쓰여 글자를 붙인다 */
+.top-slot { display: contents; }
 .edit-launcher {
-  position: absolute;
-  top: 14px;
-  right: 18px;
-  z-index: 41;
   display: flex;
   align-items: center;
-  gap: 7px;
-  height: 38px;
-  padding: 0 15px;
+  gap: 6px;
+  padding: 0 14px;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--ui-text);
-  background: var(--ui-popup-bg);
-  border: 1px solid var(--ui-popup-line);
-  border-radius: 999px;
-  box-shadow: 0 4px 16px var(--ui-popup-shadow);
+  color: var(--ui-dim);
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--ui-line);
   cursor: pointer;
   user-select: none;
+  /* 좁은 화면에서 '편집' 이 세로로 쪼개지지 않게 */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.edit-launcher:hover { border-color: var(--ui-strong); }
-.edit-launcher.is-open { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
+@media (max-width: 420px) { .edit-launcher { padding: 0 10px; } }
+.edit-launcher:hover { color: var(--ui-text); background: var(--ui-hover); }
+.edit-launcher.is-open { color: var(--ui-on-accent); background: var(--ui-accent); }
 
 /*
  * 포토샵 패널처럼: 좁고 촘촘하게, 내용에 맞춘 크기. 머리는 탭 한 칸짜리 띠.

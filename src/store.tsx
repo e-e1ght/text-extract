@@ -93,6 +93,9 @@ interface StoreValue {
   /** 배경 이미지 위치를 드래그로 조절하는 중인지 (저장하지 않음) */
   adjustingImage: boolean;
   setAdjustingImage: (value: boolean) => void;
+  /** 글 상자 배경을 드래그로 조절하는 중인지 (저장하지 않음) */
+  adjustingBox: boolean;
+  setAdjustingBox: (value: boolean) => void;
   /** 이미지 슬롯을 드래그로 조절하는 중이면 그 칸 (저장하지 않음) */
   adjustingSlot: SlotSide | null;
   setAdjustingSlot: (value: SlotSide | null) => void;
@@ -105,7 +108,17 @@ const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [settings, setSettingsState] = useState<Settings>(DEFAULT_SETTINGS);
-  const [adjustingImage, setAdjustingImage] = useState(false);
+  const [adjustingImage, setAdjustingImageState] = useState(false);
+  const [adjustingBox, setAdjustingBoxState] = useState(false);
+  // 둘은 같이 켜지지 않는다 — 결과물 배경 덮개가 글 상자까지 덮어 상자 쪽을 못 끈다
+  const setAdjustingImage = useCallback((value: boolean) => {
+    setAdjustingImageState(value);
+    if (value) setAdjustingBoxState(false);
+  }, []);
+  const setAdjustingBox = useCallback((value: boolean) => {
+    setAdjustingBoxState(value);
+    if (value) setAdjustingImageState(false);
+  }, []);
   const [adjustingSlot, setAdjustingSlot] = useState<SlotSide | null>(null);
   const [selectedSticker, setSelectedSticker] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -199,11 +212,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       settings, setSettings, patch, set, replaceSettings, resetSettings,
       upsertCharacter, initialContent: initialContent.current, saveContent,
-      adjustingImage, setAdjustingImage, adjustingSlot, setAdjustingSlot,
+      adjustingImage, setAdjustingImage, adjustingBox, setAdjustingBox, adjustingSlot, setAdjustingSlot,
       selectedSticker, setSelectedSticker, ready, saveError,
     }),
     [settings, setSettings, patch, set, replaceSettings, resetSettings,
-     upsertCharacter, saveContent, adjustingImage, adjustingSlot, selectedSticker, ready, saveError],
+     upsertCharacter, saveContent, adjustingImage, setAdjustingImage, adjustingBox, setAdjustingBox, adjustingSlot, selectedSticker, ready, saveError],
   );
 
   /*
