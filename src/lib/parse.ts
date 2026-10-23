@@ -5,7 +5,10 @@
  *  - (…) 안의 텍스트는 곁말. '괄호 안 작게' 를 켜면 작은 회색 글씨가 된다.
  *    괄호 안에 볼드·이탤릭을 주어 글이 여러 조각으로 나뉘어도 같은 줄에서 닫히면 곁말이다.
  *  - 그 외 텍스트는 서술.
- *  - 줄 머리의 `이름:` 은 캐릭터 이름으로 본다.
+ *
+ * 줄 머리의 `이름:` 을 캐릭터 이름으로 보던 인식은 없앴다. 쓰는 사람이 드물었고,
+ * 서술 첫머리의 `시간: 오후 3시` 같은 글까지 이름으로 잡혔다. 캐릭터는 편집 패널이나
+ * 말풍선 탭에서 직접 지정한다.
  */
 
 const OPEN_QUOTES: Record<string, string> = {
@@ -17,16 +20,12 @@ const OPEN_QUOTES: Record<string, string> = {
 /** 닫는 문자로만 쓰이는 따옴표 — 단독으로 나오면 서술로 흘려보낸다 */
 const CLOSE_ONLY = new Set(['\u201D', '\u300D', '\u300F']);
 
-/** 줄 머리 캐릭터 이름: `세인:` / `세인 :` — 이름은 20자 이내, 따옴표를 포함하지 않는다 */
-const NAME_RE = /^([^\n:："'“”]{1,20})\s*[:：]/;
-
+/** 'name' 은 예전에 저장된 본문(`이름:` 인식 시절)의 역할 span 을 읽기 위해 남겨 둔다 */
 export type Role = 'dialogue' | 'narration' | 'emph' | 'name' | 'mark' | 'paren';
 
 interface Piece {
   text: string;
   role: Role;
-  /** 이 조각이 속한 화자 (캐릭터별 색상 적용용) */
-  speaker?: string;
   /** 곁말 조각이 여는·닫는 괄호를 품고 있는지 (곁말이 여러 조각에 걸칠 수 있어서) */
   parenOpen?: boolean;
   parenClose?: boolean;
@@ -41,14 +40,10 @@ interface ScanState {
   emph: boolean;
   /** (…) 곁말이 열려 있는지 — 괄호 안에 서식을 주면 글이 조각나므로 조각을 넘어 이어진다 */
   paren: boolean;
-  /** 현재 블록(줄)의 시작 부분인지 — 캐릭터 이름 판정용 */
-  atLineStart: boolean;
-  /** 가장 최근에 등장한 캐릭터 이름 */
-  speaker: string;
 }
 
 export function createScanState(): ScanState {
-  return { closer: null, emph: false, paren: false, atLineStart: true, speaker: '' };
+  return { closer: null, emph: false, paren: false };
 }
 
 /**
@@ -64,7 +59,7 @@ export function scanText(text: string, state: ScanState, lookahead = ''): Piece[
   let bufferRole: Role = state.closer ? 'dialogue' : state.emph ? 'emph' : 'narration';
 
   const flush = () => {
-    if (buffer) pieces.push({ text: buffer, role: bufferRole, speaker: state.speaker });
+    if (buffer) pieces.push({ text: buffer, role: bufferRole });
     buffer = '';
   };
   const switchTo = (role: Role) => {
@@ -74,17 +69,7 @@ export function scanText(text: string, state: ScanState, lookahead = ''): Piece[
     }
   };
 
-  // 줄 머리 캐릭터 이름 (대사 밖일 때만)
   let index = 0;
-  if (state.atLineStart && !state.closer && !state.emph && !state.paren) {
-    const match = NAME_RE.exec(text);
-    if (match && match[1].trim()) {
-      state.speaker = match[1].trim();
-      pieces.push({ text: match[0], role: 'name', speaker: state.speaker });
-      index = match[0].length;
-    }
-  }
-  if (text.length > 0) state.atLineStart = false;
 
   /** 곁말을 닫는 괄호까지(이 조각에서 닫히지 않으면 조각 끝까지) 떼어 낸다 */
   const takeParen = (open: boolean) => {
@@ -93,7 +78,7 @@ export function scanText(text: string, state: ScanState, lookahead = ''): Piece[
     const closeAt = text.slice(from).search(PAREN_CLOSE);
     const end = closeAt >= 0 ? from + closeAt + 1 : text.length;
     pieces.push({
-      text: text.slice(index, end), role: 'paren', speaker: state.speaker,
+      text: text.slice(index, end), role: 'paren',
       parenOpen: open, parenClose: closeAt >= 0,
     });
     state.paren = closeAt < 0;
@@ -144,7 +129,7 @@ export function scanText(text: string, state: ScanState, lookahead = ''): Piece[
       // 기호 자체를 따로 떼어내면 출력에서 이것만 감출 수 있다.
       const takeMarker = () => {
         flush();
-        pieces.push({ text: marker, role: 'mark', speaker: state.speaker });
+        pieces.push({ text: marker, role: 'mark' });
         index += marker.length;
       };
 
@@ -179,11 +164,10 @@ export function scanText(text: string, state: ScanState, lookahead = ''): Piece[
   return pieces;
 }
 
-/** 블록(줄) 경계를 넘을 때 호출 — 강조는 줄을 넘기지 않고, 이름 판정은 다시 켠다. */
+/** 블록(줄) 경계를 넘을 때 호출 — 강조·곁말은 줄을 넘기지 않는다. */
 export function enterNewBlock(state: ScanState): void {
   state.emph = false;
   state.paren = false;
-  state.atLineStart = true;
 }
 
 /* ------------------------------------------------------------------ */
@@ -207,7 +191,7 @@ const CLASS_BY_ROLE: Record<Role, string> = {
  * 볼드·색상이 함께 사라진다 — style 이 남아 있으면 평범한 span 으로 옮겨 살린다.
  */
 export function unwrapRoles(root: HTMLElement): void {
-  // 이름 구분 기호 래퍼도 함께 벗긴다 — 남겨 두면 `이름:` 패턴이 끊겨 다시 인식되지 않는다.
+  // .te-namesep 은 예전 `이름:` 인식이 남긴 구분 기호 래퍼 — 예전 본문을 열 때 함께 벗긴다.
   const marked = root.querySelectorAll<HTMLElement>(
     '[data-te-role], .te-namesep, .te-quote, .te-paren-mark',
   );
@@ -337,18 +321,11 @@ export function markupRoles(root: HTMLElement): void {
       const span = document.createElement('span');
       span.className = CLASS_BY_ROLE[piece.role];
       span.dataset.teRole = piece.role;
-      if (piece.speaker) span.dataset.teSpeaker = piece.speaker;
       if (piece.role === 'dialogue' && carriedOver && first) span.dataset.teCont = 'true';
-      // `이름: "대사"` 의 콜론과 따옴표 사이 빈칸도 제 조각이 된다 — 따로 다룰 수 있게 표시한다.
-      if (piece.text.trim() === '') span.dataset.teBlank = 'true';
       first = false;
 
-      // `이름:` 의 구분 기호와 대사의 따옴표는 따로 감싼다 (따로 다룰 수 있도록).
-      const separator = piece.role === 'name' ? /([:：]\s*)$/.exec(piece.text) : null;
-      if (separator) {
-        span.appendChild(document.createTextNode(piece.text.slice(0, separator.index)));
-        span.appendChild(markSpan('te-namesep', separator[1]));
-      } else if (piece.role === 'dialogue') {
+      // 대사의 따옴표는 따로 감싼다 (따로 다룰 수 있도록).
+      if (piece.role === 'dialogue') {
         let text = piece.text;
         if (OPEN_QUOTES[text[0]]) {
           span.appendChild(markSpan('te-quote', text[0]));
@@ -374,99 +351,6 @@ export function markupRoles(root: HTMLElement): void {
     }
     textNode.parentNode?.replaceChild(fragment, textNode);
   }
-}
-
-/* ------------------------------------------------------------------ */
-/* 줄을 대사/서술 덩어리로 쪼개기 (캐릭터 이름 찾기에 쓴다)              */
-/* ------------------------------------------------------------------ */
-
-export type Block =
-  | { kind: 'dialogue'; name: string; text: string }
-  | { kind: 'narration'; text: string };
-
-/** *…* / **…** 강조 기호를 벗겨낸다 */
-function stripEmphasis(value: string): string {
-  return value.replace(/\*\*([\s\S]+?)\*\*/g, '$1').replace(/\*([\s\S]+?)\*/g, '$1');
-}
-
-function stripQuotes(value: string): string {
-  const trimmed = value.trim();
-  const first = trimmed[0];
-  const closer = first ? OPEN_QUOTES[first] : undefined;
-  if (closer && trimmed.endsWith(closer) && trimmed.length >= 2) {
-    return trimmed.slice(1, -1).trim();
-  }
-  return trimmed;
-}
-
-/**
- * 평문을 말풍선 단위로 쪼갠다.
- *
- * 본문 인식과 똑같은 스캐너를 쓰므로, 한 줄 안에 대사와 서술이 섞여 있어도
- * (예: `"들어와도 돼." 나는 책을 덮으며 말했다. "어차피…"`) 각각 따로 잡힌다.
- * 따옴표가 줄을 넘어가면 그 대사는 하나의 말풍선으로 이어 붙인다.
- */
-export function parseScript(plainText: string): Block[] {
-  const blocks: Block[] = [];
-  const state = createScanState();
-  const lines = plainText.replace(/\r\n?/g, '\n').split('\n');
-
-  let open: { kind: 'dialogue' | 'narration'; name: string; text: string } | null = null;
-
-  const flush = () => {
-    if (!open) return;
-    const raw = open.text.trim();
-    if (raw) {
-      if (open.kind === 'dialogue') {
-        blocks.push({ kind: 'dialogue', name: open.name, text: stripEmphasis(stripQuotes(raw)) });
-      } else {
-        // 강조 기호는 그대로 둔다 — 보여줄 때 *…* 부분만 기울여야 하기 때문.
-        blocks.push({ kind: 'narration', text: raw });
-      }
-    }
-    open = null;
-  };
-
-  for (const rawLine of lines) {
-    // 따옴표가 아직 닫히지 않은 채 줄이 바뀌면 같은 말풍선을 이어서 채운다.
-    const carriedOver = state.closer !== null;
-    enterNewBlock(state);
-
-    const line = rawLine.replace(/\s+$/, '');
-    if (!line.trim()) {
-      if (!carriedOver) flush();
-      continue;
-    }
-
-    if (carriedOver && open) open.text += '\n';
-    else flush();
-
-    for (const piece of scanText(line, state)) {
-      if (piece.role === 'name') continue;
-
-      const kind = piece.role === 'dialogue' ? 'dialogue' : 'narration';
-      const name = piece.speaker ?? '';
-
-      if (open && open.kind === kind && (kind === 'narration' || open.name === name)) {
-        open.text += piece.text;
-      } else {
-        flush();
-        open = { kind, name, text: piece.text };
-      }
-    }
-  }
-
-  flush();
-  return blocks;
-}
-
-/** 본문에 등장하는 캐릭터 이름 목록 */
-export function collectCharacters(plainText: string): string[] {
-  const names = new Set<string>();
-  for (const block of parseScript(plainText)) {
-    if (block.kind === 'dialogue' && block.name) names.add(block.name);
-  }
-  return [...names];
 }
 
 /**

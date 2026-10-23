@@ -62,20 +62,6 @@ function characterCss(settings: Settings): string {
       if (character.avatar) {
         rules.push(`${bubble} .te-bubble-name::before{background-image:url("${character.avatar}");}`);
       }
-      /*
-       * `이름: "대사"` 를 통째로 드래그해 상자로 만들면 이름이 두 번 나온다
-       * (이름표 + 본문 속 `이름:`). 같은 인물일 때만 본문 쪽을 감춘다.
-       * 이름 '바로 뒤' 의 빈칸도 함께 — 남겨 두면 글이 한 칸 밀린다.
-       * 바로 뒤만이어야 한다: 예전에는 그 인물의 빈칸 조각을 모두 감춰,
-       * `"안녕." (웃으며) *강조*` 가 `"안녕."웃으며강조` 로 붙어 나왔다.
-       */
-      for (const [box, body] of [[bubble, '.te-bubble-text'], [script, '.te-script-text']]) {
-        const nameSel = `.te-capture.bub-name ${box.slice('.te-capture '.length)} ${body}`
-          + ` [data-te-role="name"][data-te-speaker="${name}"]`;
-        rules.push(
-          `${nameSel},${nameSel} + [data-te-role="narration"][data-te-blank]{display:none;}`,
-        );
-      }
       return rules.join('');
     })
     .join('');

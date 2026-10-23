@@ -250,16 +250,6 @@ body {
 .rail-button:hover .rail-tip,
 .rail-button:focus-visible .rail-tip { opacity: 1; }
 
-.rail-dot {
-  position: absolute;
-  top: 9px;
-  right: 9px;
-  width: 5px;
-  height: 5px;
-  border-radius: 0;
-  background: var(--ui-accent);
-}
-.rail-button.is-active .rail-dot { background: var(--ui-accent); }
 
 /* 꺼내 쓰는 패널 */
 .dock {
@@ -1791,7 +1781,12 @@ textarea { resize: vertical; line-height: 1.5; }
 .dd-list-grid .dd-item { padding: 4px 0; font-size: 11px; text-align: center; font-variant-numeric: tabular-nums; }
 
 /* 편집 패널 — 한 줄에 글꼴(넓게) + 크기(좁게), 포토샵 패널 크기로 */
-.ep-row.ep-type { flex-wrap: wrap; gap: 4px; align-items: flex-start; align-content: flex-start; }
+.ep-row.ep-type { flex-wrap: nowrap; gap: 4px; align-items: flex-start; }
+/*
+ * 줄넘김은 목록을 펼쳤을 때만 켠다. 늘 켜 두면 패널 폭을 내용에 맞춰 잴 때
+ * 글꼴·크기 칸이 두 줄로 놓인 높이를 잡아, 한 줄인데도 아래에 빈 줄이 남았다.
+ */
+.ep-row.ep-type:has(.dd.is-open) { flex-wrap: wrap; }
 .ep-type > .dd:not(.dd-size) { flex: 1 1 120px; }
 .ep-type > .dd-size { flex: 0 0 74px; }
 /* 펼친 목록은 줄 전체 폭을 쓴다 */

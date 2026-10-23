@@ -2,13 +2,13 @@ import { useStore } from '../../store';
 import { CharacterList } from './CharacterList';
 import { ColorField, Hint, NumberSlider, Toggle } from '../ui';
 
-export function BubblePanel({ detectedNames }: { detectedNames: string[] }) {
+export function BubblePanel() {
   const { settings, patch } = useStore();
   const bubble = settings.bubble;
 
   return (
     <>
-      <CharacterList detectedNames={detectedNames} />
+      <CharacterList />
 
       <hr className="divider" />
 

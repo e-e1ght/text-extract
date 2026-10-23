@@ -32,11 +32,10 @@ const MAX_PANEL = 640;
 interface WorkspaceProps {
   editorRoot: HTMLElement | null;
   captureNode: HTMLElement | null;
-  detectedNames: string[];
 }
 
 /** 아이콘 레일 + 열려 있는 패널 하나. 포토샵처럼 필요한 것만 꺼내 쓴다. */
-export function Workspace({ editorRoot, captureNode, detectedNames }: WorkspaceProps) {
+export function Workspace({ editorRoot, captureNode }: WorkspaceProps) {
   const { settings, set } = useStore();
   const active = settings.activePanel;
   const current = RAIL.find((item) => item.id === active);
@@ -51,7 +50,7 @@ export function Workspace({ editorRoot, captureNode, detectedNames }: WorkspaceP
       case 'background': return <BackgroundPanel editorRoot={editorRoot} />;
       case 'layout': return <LayoutPanel captureNode={captureNode} />;
       case 'meta': return <MetaPanel />;
-      case 'bubble': return <BubblePanel detectedNames={detectedNames} />;
+      case 'bubble': return <BubblePanel />;
       case 'export': return <ExportPanel captureNode={captureNode} editorRoot={editorRoot} />;
       default: return null;
     }
@@ -73,9 +72,6 @@ export function Workspace({ editorRoot, captureNode, detectedNames }: WorkspaceP
           >
             {item.icon}
             <span className="rail-tip">{item.label}</span>
-            {item.id === 'bubble' && detectedNames.length > 0 ? (
-              <span className="rail-dot" />
-            ) : null}
           </button>
         ))}
 

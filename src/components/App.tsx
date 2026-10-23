@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { installAllFonts } from '../lib/fonts';
 import { History } from '../lib/history';
-import { collectCharacters } from '../lib/parse';
 import { useStore } from '../store';
 import { Editor, readPlainText } from './Editor';
 import { Preview } from './Preview';
@@ -82,8 +81,6 @@ export function App() {
   // 설정이 바뀌어도 기록을 남긴다 (사이드바 서식까지 되돌리기 위함)
   useEffect(() => { recordHistory(); }, [settings, recordHistory]);
   useEffect(() => () => window.clearTimeout(pushTimer.current), []);
-
-  const detectedNames = useMemo(() => collectCharacters(plainText), [plainText]);
 
   const handleHtmlChange = useCallback((html: string) => {
     liveHtml.current = html;
@@ -218,7 +215,6 @@ export function App() {
         <Workspace
           editorRoot={editorRoot}
           captureNode={captureNode}
-          detectedNames={detectedNames}
         />
 
         <main className="stage">
@@ -264,7 +260,7 @@ export function App() {
               {/* 처음 열었을 때만 보이는 사용법 — 결과물에는 들어가지 않는다 */}
               {isEmpty ? (
                 <ul className="start-tips" data-export-ignore="true">
-                  <li><code>이름: "대사"</code> 로 쓰면 이름과 대사를 알아서 구분합니다</li>
+                  <li><code>"대사"</code> 는 따옴표를 보고 대사와 서술을 알아서 구분합니다</li>
                   <li><code>*강조*</code> 는 강조 서술이 되고, 별표는 결과물에서 감춰집니다</li>
                   <li>글자를 드래그한 뒤 <strong>편집</strong> 단추로 패널을 열어 색·크기·말풍선을 바꿉니다</li>
                 </ul>

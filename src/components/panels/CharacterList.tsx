@@ -1,25 +1,14 @@
 import { useState } from 'react';
 import { rememberColor } from '../../lib/recentColors';
 import { readFileAsDataUrl } from '../../lib/exporters';
-import { newCharacter, useStore } from '../../store';
+import { useStore } from '../../store';
 import { FileButton, Hint } from '../ui';
 
 /** 캐릭터 목록과 색상. 말풍선 모양과 함께 다루는 편이 자연스러워 말풍선 패널에 둔다. */
-export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
+export function CharacterList() {
   const { settings, upsertCharacter, setSettings } = useStore();
   const [newName, setNewName] = useState('');
   const roles = settings.roles;
-
-  const known = new Set(Object.keys(settings.characters));
-  const missing = detectedNames.filter((name) => !known.has(name));
-
-  const registerAll = () => {
-    setSettings((prev) => {
-      const next = { ...prev.characters };
-      for (const name of missing) next[name] = newCharacter(name, prev);
-      return { ...prev, characters: next };
-    });
-  };
 
   const removeCharacter = (name: string) => {
     setSettings((prev) => {
@@ -42,11 +31,6 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
     <>
       <div className="panel-head">
         <span>캐릭터</span>
-        {missing.length > 0 ? (
-          <button type="button" className="mini-button" onClick={registerAll}>
-            본문에서 {missing.length}명 추가
-          </button>
-        ) : null}
       </div>
 
       <div className="button-row">
@@ -69,7 +53,6 @@ export function CharacterList({ detectedNames }: { detectedNames: string[] }) {
       {Object.values(settings.characters).length === 0 ? (
         <Hint>
           본문에서 이름을 드래그한 뒤 편집 패널의 <strong>캐릭터</strong> 버튼으로 추가하거나, 위 칸에 직접 입력하세요.
-          본문에 <code>이름: "대사"</code> 형태로 쓰면 자동으로도 찾아냅니다.
         </Hint>
       ) : null}
 
