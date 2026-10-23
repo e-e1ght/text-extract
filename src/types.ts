@@ -34,7 +34,7 @@ export interface RoleColors {
 
 export type BackgroundType = 'solid' | 'gradient' | 'image' | 'pattern' | 'ascii';
 
-export type PatternKind = 'dots' | 'check' | 'stars' | 'bubbles';
+export type PatternKind = 'dots' | 'check' | 'stars' | 'bubbles' | 'plaid' | 'cells';
 
 export interface Background {
   type: BackgroundType;
@@ -55,8 +55,12 @@ export interface Background {
   /** 무늬 크기 배율 (%). 무늬마다 기본 크기가 달라 배율로 맞춘다 */
   patternScale: number;
   patternColor: string;
+  /** 둘째 무늬 색 — 타탄 체크의 다른 띠 */
+  patternColor2: string;
   patternAngle: number;
   patternOpacity: number;
+  /** 무늬 사이 간격 (%). 100 이 예전 그대로이고, 늘리면 무늬 크기는 두고 사이만 벌어진다 */
+  patternGap: number;
   /* 아스키 아트 — 바탕은 color */
   asciiUrl: string;
   asciiColor: string;

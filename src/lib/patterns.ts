@@ -13,12 +13,10 @@
  * 캔버스는 '번진 별 모양의 농도' 를 재는 데에만 쓴다.
  */
 
-/** 별 타일 한 변 (타일 좌표). 하프톤 간격(PITCH)으로 나누어떨어져야 이음매가 맞는다 */
+/** 별 타일 한 변 (타일 좌표, 간격 100% 일 때). 하프톤 간격(PITCH)으로 나누어떨어져야 이음매가 맞는다 */
 export const STAR_TILE = 1032;
 const PITCH = 12;
 const ROW = PITCH / 2;
-const COLS = STAR_TILE / PITCH;
-const ROWS = STAR_TILE / ROW;
 /** 점이 가장 클 때의 반지름. 이웃 점과 살짝 겹쳐 진한 곳이 메워지게 한다 */
 const DOT_MAX = 4.7;
 /** 이보다 옅은 농도는 점을 찍지 않는다 */
@@ -31,6 +29,8 @@ export interface StarSolid {
 }
 
 export interface StarField {
+  /** 타일 한 변 — 간격을 벌리면 별 개수는 그대로 두고 타일만 넓힌다 */
+  tile: number;
   solids: StarSolid[];
   /** 하프톤 점 전체를 한 경로로 묶은 것 */
   dots: string;
@@ -111,20 +111,20 @@ function parts(star: Star): Array<{ r: number; stroke: number }> {
 }
 
 /** 타일 가장자리에 걸친 별은 맞은편에도 그려야 이어 붙였을 때 잘리지 않는다 */
-function wrapOffsets(x: number, y: number, reach: number): Array<[number, number]> {
+export function wrapOffsets(x: number, y: number, reach: number, tile: number): Array<[number, number]> {
   const out: Array<[number, number]> = [];
-  for (const dx of [-STAR_TILE, 0, STAR_TILE]) {
-    for (const dy of [-STAR_TILE, 0, STAR_TILE]) {
+  for (const dx of [-tile, 0, tile]) {
+    for (const dy of [-tile, 0, tile]) {
       const nx = x + dx;
       const ny = y + dy;
-      if (nx + reach < 0 || nx - reach > STAR_TILE || ny + reach < 0 || ny - reach > STAR_TILE) continue;
+      if (nx + reach < 0 || nx - reach > tile || ny + reach < 0 || ny - reach > tile) continue;
       out.push([dx, dy]);
     }
   }
   return out;
 }
 
-function placeStars(rand: () => number, form: Form): Star[] {
+function placeStars(rand: () => number, form: Form, tile: number): Star[] {
   const stars: Star[] = [];
   // 큰 별부터 자리를 잡고, 작은 별이 틈을 메운다
   const sizes: number[] = [];
@@ -134,12 +134,12 @@ function placeStars(rand: () => number, form: Form): Star[] {
 
   for (const r of sizes) {
     for (let attempt = 0; attempt < 60; attempt += 1) {
-      const x = rand() * STAR_TILE;
-      const y = rand() * STAR_TILE;
+      const x = rand() * tile;
+      const y = rand() * tile;
       // 이어 붙인 판 위에서의 거리 — 타일 경계 너머의 별과도 너무 겹치지 않게
       const clash = stars.some((other) => {
-        const dx = Math.min(Math.abs(other.x - x), STAR_TILE - Math.abs(other.x - x));
-        const dy = Math.min(Math.abs(other.y - y), STAR_TILE - Math.abs(other.y - y));
+        const dx = Math.min(Math.abs(other.x - x), tile - Math.abs(other.x - x));
+        const dy = Math.min(Math.abs(other.y - y), tile - Math.abs(other.y - y));
         return Math.hypot(dx, dy) < (other.r + r) * 0.92;
       });
       if (clash) continue;
@@ -194,7 +194,7 @@ function boxBlur(alpha: Float32Array, w: number, h: number, radius: number): voi
 }
 
 /** 하프톤으로 그릴 별의 농도를 격자에 쌓는다 */
-function accumulate(star: Star, grid: Float32Array): void {
+function accumulate(star: Star, grid: Float32Array, cols: number, rows: number): void {
   const pad = Math.ceil(star.blur * 3 + star.line + 4);
   const size = Math.ceil(star.r * 2 + pad * 2);
   const canvas = document.createElement('canvas');
@@ -241,53 +241,62 @@ function accumulate(star: Star, grid: Float32Array): void {
       if (lx < 0 || ly < 0 || lx >= size || ly >= size) continue;
       const a = alpha[ly * size + lx] * star.tone;
       if (a <= 0.01) continue;
-      const cell = (((j % ROWS) + ROWS) % ROWS) * COLS + (((i % COLS) + COLS) % COLS);
+      const cell = (((j % rows) + rows) % rows) * cols + (((i % cols) + cols) % cols);
       // 겹치는 별은 '덧칠' 처럼 합친다 — 더해서 1 을 넘기지 않는다
       grid[cell] = 1 - (1 - grid[cell]) * (1 - a);
     }
   }
 }
 
-const cached = new Map<Form, StarField>();
+const cached = new Map<string, StarField>();
 
 /** 꼴마다 시드를 달리한다 — 별과 물방울의 배치가 똑같으면 바꿔 끼운 티가 난다 */
 const SEED: Record<Form, number> = { star: 20261022, circle: 20261105 };
 
-/** 별 · 물방울 무늬 한 칸. 꼴마다 처음 한 번만 계산한다 (수백 ms) */
-export function shapeField(form: Form): StarField {
-  const hit = cached.get(form);
+/**
+ * 별 · 물방울 무늬 한 칸. (꼴, 간격) 마다 처음 한 번만 계산한다 (수백 ms).
+ *
+ * spread 는 간격 배율 — 별 개수·크기는 그대로 두고 타일만 넓혀 사이를 벌린다.
+ * 타일을 그냥 띄워 놓으면 격자처럼 줄 맞춰 빈 곳이 생기므로, 넓힌 타일 안에 다시 흩뿌린다.
+ */
+export function shapeField(form: Form, spread = 1): StarField {
+  const tile = Math.round((STAR_TILE * spread) / PITCH) * PITCH;
+  const key = `${form}:${tile}`;
+  const hit = cached.get(key);
   if (hit) return hit;
+  const cols = tile / PITCH;
+  const rows = tile / ROW;
   const rand = mulberry32(SEED[form]);
-  const stars = placeStars(rand, form);
+  const stars = placeStars(rand, form, tile);
 
   const solids: StarSolid[] = [];
-  const grid = new Float32Array(COLS * ROWS);
+  const grid = new Float32Array(cols * rows);
   for (const star of stars) {
     if (star.render === 'solid') {
-      for (const [dx, dy] of wrapOffsets(star.x, star.y, star.r + star.line)) {
+      for (const [dx, dy] of wrapOffsets(star.x, star.y, star.r + star.line, tile)) {
         for (const part of parts(star)) {
           solids.push({ d: shapeD(star.form, star.x + dx, star.y + dy, part.r, star.inner, star.rot), stroke: part.stroke });
         }
       }
     } else {
-      accumulate(star, grid);
+      accumulate(star, grid, cols, rows);
     }
   }
 
   const dots: string[] = [];
-  for (let j = 0; j < ROWS; j += 1) {
+  for (let j = 0; j < rows; j += 1) {
     const shift = (j % 2) * ROW;
-    for (let i = 0; i < COLS; i += 1) {
+    for (let i = 0; i < cols; i += 1) {
       /*
        * 옅은 꼬리는 잘라 낸다. 번진 별의 꼬리가 여럿 겹치면 바탕 전체에 잔 점이 깔려
        * 회색 안개처럼 보였다 — 레퍼런스는 별 사이가 깨끗하다.
        */
-      const v = Math.max(0, (grid[j * COLS + i] - FLOOR) / (1 - FLOOR));
+      const v = Math.max(0, (grid[j * cols + i] - FLOOR) / (1 - FLOOR));
       const r = DOT_MAX * v ** 0.7;
       if (r < 0.9) continue;
       const x0 = i * PITCH + shift;
       const y0 = j * ROW;
-      for (const [dx, dy] of wrapOffsets(x0, y0, r)) {
+      for (const [dx, dy] of wrapOffsets(x0, y0, r, tile)) {
         const x = f1(x0 + dx - r);
         const y = f1(y0 + dy);
         const rr = f1(r);
@@ -296,10 +305,150 @@ export function shapeField(form: Form): StarField {
     }
   }
 
-  const field = { solids, dots: dots.join('') };
-  cached.set(form, field);
+  const field = { tile, solids, dots: dots.join('') };
+  cached.set(key, field);
+  return field;
+}
+
+/* ------------------------------------------------------------------ */
+/* 타탄 체크 — 두 색의 띠를 가로·세로로 반투명하게 겹친다                 */
+/* ------------------------------------------------------------------ */
+
+/** 타탄 한 칸 (간격 100% 일 때, 타일 좌표) */
+export const PLAID_TILE = 120;
+
+export interface PlaidStripe {
+  at: number;
+  width: number;
+  /** 1 = 무늬 색, 2 = 둘째 색 */
+  tone: 1 | 2;
+  opacity: number;
+}
+
+/**
+ * 레퍼런스(청록 넓은 띠 + 갈색 중간 띠 + 짙은 가는 선)를 두 색으로 옮긴 것.
+ * 가로·세로에 같은 띠를 깔면 겹친 자리가 저절로 진해져 체크의 농담이 생긴다.
+ * 간격을 벌리면 띠는 그대로 두고 띠 묶음 사이의 바탕만 넓어진다.
+ */
+export function plaidStripes(spread: number): { tile: number; stripes: PlaidStripe[] } {
+  const extra = PLAID_TILE * (spread - 1);
+  // 넓은 띠 안의 가는 선 두 줄이 레퍼런스의 짙은 남색 선 역할을 한다 (겹쳐서 더 진해짐)
+  const stripes: PlaidStripe[] = [
+    { at: 0, width: 40, tone: 1, opacity: 0.5 },
+    { at: 8, width: 3, tone: 1, opacity: 0.9 },
+    { at: 29, width: 3, tone: 1, opacity: 0.9 },
+    { at: 48, width: 16, tone: 2, opacity: 0.55 },
+    { at: 55, width: 2, tone: 2, opacity: 1 },
+    { at: 76, width: 22, tone: 1, opacity: 0.32 },
+    { at: 104, width: 3, tone: 2, opacity: 0.8 },
+  ];
+  return { tile: PLAID_TILE + extra, stripes };
+}
+
+/* ------------------------------------------------------------------ */
+/* 물결 칸 — 둥근 칸이 굵은 선 사이로 물결치듯 늘어선 무늬               */
+/* ------------------------------------------------------------------ */
+
+/** 한 변의 칸 수와 칸 한 변 (간격 100% 일 때, 타일 좌표) */
+const CELL_COUNT = 8;
+const CELL_SIZE = 60;
+/** 칸 사이 선 굵기 (간격 100% 일 때). 이 무늬의 '사이' 는 선이라, 간격을 벌리면 칸은 두고 선이 굵어진다 */
+const CELL_LINE = 7;
+
+type Pt = [number, number];
+
+/** 두 직선(점 + 방향)의 교점 */
+function intersect(p: Pt, d: Pt, q: Pt, e: Pt): Pt {
+  const det = d[0] * e[1] - d[1] * e[0];
+  if (Math.abs(det) < 1e-9) return p;
+  const t = ((q[0] - p[0]) * e[1] - (q[1] - p[1]) * e[0]) / det;
+  return [p[0] + d[0] * t, p[1] + d[1] * t];
+}
+
+/** 볼록 사각형을 변마다 h 만큼 안으로 민다 (선 굵기의 절반) */
+function inset(quad: Pt[], h: number): Pt[] {
+  const n = quad.length;
+  const lines = quad.map((a, i) => {
+    const b = quad[(i + 1) % n];
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const len = Math.hypot(dx, dy) || 1;
+    // 시계 방향(화면 좌표) 사각형의 안쪽 법선
+    const nx = -dy / len;
+    const ny = dx / len;
+    return { p: [a[0] + nx * h, a[1] + ny * h] as Pt, d: [dx, dy] as Pt };
+  });
+  return lines.map((line, i) => {
+    const prev = lines[(i + n - 1) % n];
+    return intersect(prev.p, prev.d, line.p, line.d);
+  });
+}
+
+/** 모서리를 둥글린 닫힌 경로 — 변의 35% 까지 깎아 레퍼런스처럼 몽글한 칸이 되게 */
+function roundedPath(pts: Pt[]): string {
+  const n = pts.length;
+  const cut = (a: Pt, b: Pt, t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  let d = '';
+  for (let i = 0; i < n; i += 1) {
+    const prev = pts[(i + n - 1) % n];
+    const cur = pts[i];
+    const next = pts[(i + 1) % n];
+    const from = cut(cur, prev, 0.35);
+    const to = cut(cur, next, 0.35);
+    d += `${i === 0 ? 'M' : 'L'}${f1(from[0])} ${f1(from[1])}Q${f1(cur[0])} ${f1(cur[1])} ${f1(to[0])} ${f1(to[1])}`;
+  }
+  return `${d}Z`;
+}
+
+const cellCache = new Map<number, { tile: number; d: string }>();
+
+/**
+ * 물결 칸 한 타일. 타일 전체를 칠하고 칸 자리를 구멍으로 뚫는다 (evenodd) —
+ * 남은 부분이 칸 사이의 굵은 선이 된다.
+ *
+ * 격자점을 사인 물결 + 약간의 흔들림으로 옮겨 칸 모양이 제각각이 되게 한다.
+ * 물결의 주기는 타일 안에 정수 번 들어가고, 흔들림은 격자 번호로 되풀이되어 이음매가 맞는다.
+ */
+export function cellField(spread = 1): { tile: number; d: string } {
+  const line = Math.round(CELL_LINE * spread * 10) / 10;
+  const hit = cellCache.get(line);
+  if (hit) return hit;
+  const size = CELL_SIZE;
+  const tile = size * CELL_COUNT;
+  const rand = mulberry32(20261023);
+  const jitter: Pt[] = [];
+  for (let i = 0; i < CELL_COUNT * CELL_COUNT; i += 1) {
+    jitter.push([(rand() - 0.5) * 0.18, (rand() - 0.5) * 0.18]);
+  }
+  const TAU = Math.PI * 2;
+  const point = (i: number, j: number): Pt => {
+    const u = i / CELL_COUNT;
+    const v = j / CELL_COUNT;
+    const [jx, jy] = jitter[(((j % CELL_COUNT) + CELL_COUNT) % CELL_COUNT) * CELL_COUNT
+      + (((i % CELL_COUNT) + CELL_COUNT) % CELL_COUNT)];
+    // 너무 크게 흔들면 칸이 뾰족한 세모로 찌그러진다
+    const dx = 0.17 * Math.sin(TAU * (v * 2 + u)) + 0.08 * Math.sin(TAU * (u * 3 - v)) + jx;
+    const dy = 0.17 * Math.sin(TAU * (u * 2 - v)) + 0.08 * Math.sin(TAU * (v * 3 + u)) + jy;
+    return [(i + dx) * size, (j + dy) * size];
+  };
+
+  let d = `M0 0H${tile}V${tile}H0Z`;
+  // 가장자리 칸은 맞은편에서 넘어온 칸이 메우도록 한 줄씩 더 돈다
+  for (let j = -1; j <= CELL_COUNT; j += 1) {
+    for (let i = -1; i <= CELL_COUNT; i += 1) {
+      const quad = [point(i, j), point(i + 1, j), point(i + 1, j + 1), point(i, j + 1)];
+      const xs = quad.map((p) => p[0]);
+      const ys = quad.map((p) => p[1]);
+      if (Math.max(...xs) < 0 || Math.min(...xs) > tile || Math.max(...ys) < 0 || Math.min(...ys) > tile) continue;
+      d += roundedPath(inset(quad, line / 2));
+    }
+  }
+  const field = { tile, d };
+  cellCache.set(line, field);
   return field;
 }
 
 /** 무늬마다 100% 일 때 한 칸의 크기 (화면 px) */
-export const PATTERN_BASE = { dots: 22, check: 48, stars: 760, bubbles: 760 } as const;
+export const PATTERN_BASE = {
+  dots: 22, check: 48, stars: 760, bubbles: 760, plaid: 120, cells: 360,
+} as const;

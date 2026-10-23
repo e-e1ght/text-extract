@@ -1,6 +1,8 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { ASCII_FONT, ASCII_LINE_HEIGHT, imageToAscii, loadImage } from '../lib/ascii';
-import { PATTERN_BASE, STAR_TILE, shapeField } from '../lib/patterns';
+import {
+  PATTERN_BASE, PLAID_TILE, STAR_TILE, cellField, plaidStripes, shapeField,
+} from '../lib/patterns';
 import type { PatternKind } from '../types';
 
 interface PatternProps {
@@ -8,44 +10,102 @@ interface PatternProps {
   /** 배율 (%) */
   scale: number;
   color: string;
+  /** 둘째 색 — 타탄 체크만 쓴다 */
+  color2?: string;
   angle: number;
   opacity: number;
+  /** 무늬 사이 간격 (%). 무늬 하나하나의 크기는 그대로 두고 사이만 벌린다 */
+  gap?: number;
 }
 
-/** 무늬 한 칸의 내용. 좌표는 각 무늬의 '기본 칸' 기준이다 */
-function Tile({ kind }: { kind: PatternKind }) {
+/** 간격을 다루지 않는 무늬 — 바둑판은 칸끼리 맞닿아 있어 벌릴 사이가 없다 */
+export const PATTERN_NO_GAP: PatternKind[] = ['check'];
+
+/** 물결 칸의 타일 — 간격은 선 굵기라 타일 크기는 늘 같다 */
+const CELL_TILE = cellField(1).tile;
+
+/**
+ * 별·물방울은 간격마다 다시 계산하므로(수백 ms) 25% 단위로 묶는다.
+ * 슬라이더를 끄는 동안 값마다 계산하면 화면이 끊긴다.
+ */
+const starSpread = (gap: number) => Math.max(1, Math.round(gap / 25) * 25) / 100;
+
+/** 무늬 한 칸의 크기(타일 좌표)와 내용 */
+function tileOf(kind: PatternKind, gap: number, color2: string): { size: number; body: ReactNode } {
+  const spread = Math.max(1, gap / 100);
   if (kind === 'dots') {
-    // 땡땡이 — 엇갈려 놓아야 줄무늬처럼 보이지 않는다
+    // 땡땡이 — 엇갈려 놓아야 줄무늬처럼 보이지 않는다. 점 크기는 간격과 무관하다
     const s = PATTERN_BASE.dots;
+    const size = s * spread;
     const r = s * 0.16;
-    return (
-      <>
-        <circle cx={s / 4} cy={s / 4} r={r} />
-        <circle cx={(s * 3) / 4} cy={(s * 3) / 4} r={r} />
-      </>
-    );
+    return {
+      size,
+      body: (
+        <>
+          <circle cx={size / 4} cy={size / 4} r={r} />
+          <circle cx={(size * 3) / 4} cy={(size * 3) / 4} r={r} />
+        </>
+      ),
+    };
   }
   if (kind === 'check') {
     const half = PATTERN_BASE.check / 2;
-    return (
-      <>
-        <rect x={0} y={0} width={half} height={half} />
-        <rect x={half} y={half} width={half} height={half} />
-      </>
-    );
+    return {
+      size: PATTERN_BASE.check,
+      body: (
+        <>
+          <rect x={0} y={0} width={half} height={half} />
+          <rect x={half} y={half} width={half} height={half} />
+        </>
+      ),
+    };
+  }
+  if (kind === 'plaid') {
+    const { tile, stripes } = plaidStripes(spread);
+    return {
+      size: tile,
+      body: (
+        <>
+          {stripes.map((stripe, i) => {
+            const fill = stripe.tone === 2 ? color2 : 'currentColor';
+            return (
+              <g key={i} fill={fill} opacity={stripe.opacity}>
+                <rect x={stripe.at} y={0} width={stripe.width} height={tile} />
+                <rect x={0} y={stripe.at} width={tile} height={stripe.width} />
+              </g>
+            );
+          })}
+        </>
+      ),
+    };
+  }
+  if (kind === 'cells') {
+    const field = cellField(spread);
+    return { size: field.tile, body: <path d={field.d} fillRule="evenodd" /> };
   }
   // 별과 물방울은 같은 계산기로 꼴만 바꿔 만든다
-  const field = shapeField(kind === 'bubbles' ? 'circle' : 'star');
-  return (
-    <>
-      <path d={field.dots} />
-      {field.solids.map((solid, i) => (
-        solid.stroke
-          ? <path key={i} d={solid.d} fill="none" stroke="currentColor" strokeWidth={solid.stroke} strokeLinejoin="round" />
-          : <path key={i} d={solid.d} />
-      ))}
-    </>
-  );
+  const field = shapeField(kind === 'bubbles' ? 'circle' : 'star', starSpread(gap));
+  return {
+    size: field.tile,
+    body: (
+      <>
+        <path d={field.dots} />
+        {field.solids.map((solid, i) => (
+          solid.stroke
+            ? <path key={i} d={solid.d} fill="none" stroke="currentColor" strokeWidth={solid.stroke} strokeLinejoin="round" />
+            : <path key={i} d={solid.d} />
+        ))}
+      </>
+    ),
+  };
+}
+
+/** 타일 좌표 → 화면 px 배율 (100% 기준). 간격을 벌려도 무늬 자체는 같은 크기로 보이게 */
+function unitScale(kind: PatternKind): number {
+  if (kind === 'stars' || kind === 'bubbles') return PATTERN_BASE[kind] / STAR_TILE;
+  if (kind === 'plaid') return PATTERN_BASE.plaid / PLAID_TILE;
+  if (kind === 'cells') return PATTERN_BASE.cells / CELL_TILE;
+  return 1;
 }
 
 /**
@@ -53,25 +113,26 @@ function Tile({ kind }: { kind: PatternKind }) {
  * 회전은 patternTransform 으로 한다 — 무늬가 무한히 이어지므로 아무리 긴 결과물이어도
  * 돌린 뒤 모서리가 비지 않는다.
  */
-export function PatternFill({ kind, scale, color, angle, opacity }: PatternProps) {
+export function PatternFill({
+  kind, scale, color, color2 = color, angle, opacity, gap = 100,
+}: PatternProps) {
   const id = `te-pat-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
-  const computed = kind === 'stars' || kind === 'bubbles';
-  const base = computed ? STAR_TILE : PATTERN_BASE[kind];
-  // 별·물방울은 계산한 칸(STAR_TILE)을 화면 크기(PATTERN_BASE)로 줄여 쓴다
-  const k = ((computed ? PATTERN_BASE[kind] / STAR_TILE : 1) * scale) / 100;
+  const { size, body } = useMemo(
+    () => tileOf(kind, PATTERN_NO_GAP.includes(kind) ? 100 : gap, color2),
+    [kind, gap, color2],
+  );
+  const k = (unitScale(kind) * scale) / 100;
   return (
     <svg className="bg-pattern" width="100%" height="100%" aria-hidden="true" style={{ color }}>
       <defs>
         <pattern
           id={id}
           patternUnits="userSpaceOnUse"
-          width={base}
-          height={base}
+          width={size}
+          height={size}
           patternTransform={`rotate(${angle}) scale(${k})`}
         >
-          <g fill="currentColor">
-            <Tile kind={kind} />
-          </g>
+          <g fill="currentColor">{body}</g>
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill={`url(#${id})`} opacity={opacity} />

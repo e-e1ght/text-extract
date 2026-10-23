@@ -2,7 +2,7 @@ import { readFileAsDataUrl } from '../../lib/exporters';
 import { useStore } from '../../store';
 import { ColorField, Field, FileButton, Hint, NumberSlider, Select, Toggle } from '../ui';
 import type { BackgroundType, PatternKind } from '../../types';
-import { PatternFill } from '../BackgroundArt';
+import { PATTERN_NO_GAP, PatternFill } from '../BackgroundArt';
 import { measureAspect } from '../../lib/ascii';
 import { ImageSection } from './ImageSection';
 import { SlotSection } from './SlotSection';
@@ -21,6 +21,8 @@ const PATTERNS: Array<{ label: string; value: PatternKind; previewScale: number 
   { label: '체크', value: 'check', previewScale: 40 },
   { label: '별', value: 'stars', previewScale: 22 },
   { label: '물방울', value: 'bubbles', previewScale: 22 },
+  { label: '타탄', value: 'plaid', previewScale: 35 },
+  { label: '물결 칸', value: 'cells', previewScale: 25 },
 ];
 
 export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
@@ -156,6 +158,7 @@ export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null
                       kind={pattern.value}
                       scale={pattern.previewScale}
                       color={bg.patternColor}
+                      color2={bg.patternColor2}
                       angle={bg.patternAngle}
                       opacity={bg.patternOpacity}
                     />
@@ -166,10 +169,19 @@ export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null
             </div>
           </Field>
           <ColorField label="바탕색" value={bg.color} onChange={(color) => patch('background', { color })} />
-          <ColorField label="무늬 색" value={bg.patternColor}
+          <ColorField label={bg.patternKind === 'plaid' ? '무늬 색 1' : '무늬 색'} value={bg.patternColor}
             onChange={(patternColor) => patch('background', { patternColor })} />
+          {bg.patternKind === 'plaid' ? (
+            <ColorField label="무늬 색 2" value={bg.patternColor2}
+              onChange={(patternColor2) => patch('background', { patternColor2 })} />
+          ) : null}
           <NumberSlider label="무늬 크기" value={bg.patternScale} min={25} max={300} unit="%"
             onChange={(patternScale) => patch('background', { patternScale })} />
+          {PATTERN_NO_GAP.includes(bg.patternKind) ? null : (
+            <NumberSlider label="무늬 간격" value={bg.patternGap} min={100} max={300} unit="%"
+              hint="크기는 두고 사이만 벌림"
+              onChange={(patternGap) => patch('background', { patternGap })} />
+          )}
           <NumberSlider label="무늬 각도" value={bg.patternAngle} min={0} max={360} unit="°"
             onChange={(patternAngle) => patch('background', { patternAngle })} />
           <NumberSlider label="무늬 불투명도" value={Math.round(bg.patternOpacity * 100)} min={0} max={100} unit="%"
