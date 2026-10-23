@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import type { BorderStyle, PageBorder as Border } from '../types';
 
 /**
@@ -20,21 +21,33 @@ function dashOf(style: BorderStyle, w: number): { dash?: string; cap: 'butt' | '
   }
 }
 
-/** 가장자리에서 d 만큼 들어간 선 하나 */
-function Line({ d, w, style, color, radius }: {
-  d: number; w: number; style: BorderStyle; color: string; radius: number;
+/**
+ * 가장자리에서 inset 만큼 들어간 판 위에, 판 가장자리에서 offset 만큼 들어간 곳을 중심으로 긋는 선 하나.
+ *
+ * svg 판은 늘 정수 자리(inset)에 둔다. 예전에는 선의 중심(inset + 굵기/2)에 판을 놓았는데,
+ * 굵기 1px 이면 판이 0.5px 자리에 서고, 저장할 때 그 자리가 1px 로 반올림돼 선이 반 칸 밀렸다 —
+ * 안쪽 거리 0 이면 아래·오른쪽 선이 결과물 밖으로 밀려 잘렸다. 그래서 반 칸은 판 안의 좌표로만 준다.
+ * 사각형 크기는 'calc(100% - …)' 라 속성 대신 CSS 로 준다 (SVG2 의 x · y · width · height 속성).
+ */
+function Line({ inset, offset, w, style, color, radius }: {
+  inset: number; offset: number; w: number; style: BorderStyle; color: string; radius: number;
 }) {
   const { dash, cap } = dashOf(style, w);
-  // 선의 중심이 d 에 오도록 그리면 바깥 절반이 넘친다 — 넘치는 부분까지 보이게 둔다
   return (
     <svg
       className="page-border-line"
-      style={{ left: d, top: d, width: `calc(100% - ${d * 2}px)`, height: `calc(100% - ${d * 2}px)` }}
+      style={{ left: inset, top: inset, width: `calc(100% - ${inset * 2}px)`, height: `calc(100% - ${inset * 2}px)` }}
     >
       <rect
         width="100%"
         height="100%"
-        rx={Math.max(0, radius - d)}
+        style={{
+          x: `${offset}px`,
+          y: `${offset}px`,
+          width: `calc(100% - ${offset * 2}px)`,
+          height: `calc(100% - ${offset * 2}px)`,
+        } as CSSProperties}
+        rx={Math.max(0, radius - inset - offset)}
         fill="none"
         stroke={color}
         strokeWidth={w}
@@ -48,17 +61,19 @@ function Line({ d, w, style, color, radius }: {
 export function PageBorder({ border, radius }: { border: Border; radius: number }) {
   if (!border.enabled || border.width <= 0) return null;
   const { width: w, inset, style, color, opacity } = border;
-  const d = inset + w / 2;
+  // 판은 정수 자리에 — 안쪽 거리의 소수 부분은 선 중심 쪽으로 넘긴다
+  const base = Math.floor(inset);
+  const center = inset - base + w / 2;
   return (
     <div className="page-border" style={{ opacity }} aria-hidden="true">
       {style === 'double' ? (
         <>
           {/* 겹선 — 같은 굵기 두 줄, 사이는 굵기의 두 배 남짓 */}
-          <Line d={d} w={w} style="solid" color={color} radius={radius} />
-          <Line d={d + w * 3} w={w} style="solid" color={color} radius={radius} />
+          <Line inset={base} offset={center} w={w} style="solid" color={color} radius={radius} />
+          <Line inset={base} offset={center + w * 3} w={w} style="solid" color={color} radius={radius} />
         </>
       ) : (
-        <Line d={d} w={w} style={style} color={color} radius={radius} />
+        <Line inset={base} offset={center} w={w} style={style} color={color} radius={radius} />
       )}
     </div>
   );

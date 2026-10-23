@@ -519,6 +519,34 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
   const scale = typography.horizontalScale;
   const boxRef = useRef<HTMLDivElement | null>(null);
 
+  /*
+   * 글 높이는 줄 높이 때문에 143.44px 처럼 소수로 끝나기 쉽다. 결과물은 overflow: hidden 이라
+   * 잘라 내는 경계가 화소에 맞춰 반올림되는데, 그러면 가장자리에 붙은 페이지 테두리의 아래 선
+   * (굵기 1px, 안쪽 거리 0 일 때)이 경계에 걸려 통째로 잘려 나갔다.
+   * 아래 여백에 1px 미만(roundUp)을 더해 높이를 정수로 맞춘다.
+   *  - 결과물의 min-height 를 건드리지 않는다. 나눠 저장이 장마다 min-height 를 직접 바꾸는데,
+   *    거기에 끼어들면 장 높이가 어긋난다. 더하는 값이 1px 미만이라 잠깐 늦게 따라와도 티가 안 난다.
+   *  - 배율(zoom)이 걸린 화면 크기가 아니라 레이아웃 높이(computed height)로 잰다.
+   */
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [roundUp, setRoundUp] = useState(0);
+  const roundUpRef = useRef(0);
+  useLayoutEffect(() => {
+    const node = contentRef.current;
+    if (!node) return undefined;
+    const measure = () => {
+      const natural = (parseFloat(getComputedStyle(node).height) || 0) - roundUpRef.current;
+      const next = Math.round((Math.ceil(natural - 0.001) - natural) * 1000) / 1000;
+      if (Math.abs(next - roundUpRef.current) < 0.001) return;
+      roundUpRef.current = next;
+      setRoundUp(next);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   const css = useMemo(() => characterCss(settings), [settings]);
 
   // 고른 본문 글꼴만 받아 온다 (미리 여덟 벌을 받아 두지 않는다)
@@ -563,7 +591,7 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
   const contentStyle: CSSProperties = {
     paddingTop: `${layout.padTop}px`,
     paddingRight: `${layout.padRight}px`,
-    paddingBottom: `${layout.padBottom}px`,
+    paddingBottom: `${layout.padBottom + roundUp}px`,
     paddingLeft: `${layout.padLeft}px`,
     justifyContent: layout.alignY === 'top' ? 'flex-start' : layout.alignY === 'center' ? 'center' : 'flex-end',
   };
@@ -633,7 +661,7 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
       {/* 배경 위 · 글 아래 — 글에는 닿지 않는다 */}
       <PageBorder border={layout.border} radius={layout.radius} />
       {plan ? <PageGuides cuts={plan.cuts} /> : null}
-      <div className="te-content" style={contentStyle}>
+      <div className="te-content" style={contentStyle} ref={contentRef}>
         {renderSlot('top')}
         {/* 왼쪽·오른쪽 슬롯이 본문과 한 줄에 서도록 가로로 묶는다 */}
         <div className="te-middle">
