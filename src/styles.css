@@ -1304,6 +1304,13 @@ body {
   height: 6px;
   background: var(--ui-accent);
 }
+/* 한 묶음 안의 작은 머리말 (글 상자 › 배경 · 외곽선 · 그림자) */
+.panel-subhead {
+  margin-top: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ui-dim);
+}
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pair > * { min-width: 0; }
 
@@ -1869,3 +1876,12 @@ textarea { resize: vertical; line-height: 1.5; }
 .tour-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .tour-btn.is-primary { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
 .tour-btn.is-primary:hover { background: var(--ui-accent); filter: brightness(1.08); }
+
+/*
+ * 글 상자 — 여백 안쪽 글 칸을 꾸민다 (Preview.tsx, 내지 옵션 › 글 상자).
+ * 층: 상자 배경(0) · 외곽선(1) · 글(2). isolation 으로 층을 상자 안에 가둔다 —
+ * 안 그러면 배경의 z-index 가 결과물 배경 층과 섞인다.
+ */
+.te-box { position: relative; isolation: isolate; }
+.te-box-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.te-box > .te-scale { position: relative; z-index: 2; }

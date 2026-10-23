@@ -6,7 +6,7 @@ import { PageBorder } from './PageBorder';
 import { PageGuides, usePagePlan } from './PageGuides';
 import { ensureWebFont } from '../lib/webfonts';
 import { metaHtml, type MetaField } from '../lib/metaText';
-import type { ImageSlot, Settings, SlotSide } from '../types';
+import type { Background, ImageSlot, Settings, SlotSide } from '../types';
 
 function escapeAttr(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
@@ -101,8 +101,16 @@ function asciiRatio(capture: HTMLElement | null): [number, number] {
   return [a.width / l.width, a.height / l.height];
 }
 
-function backgroundLayer(settings: Settings): ReactNode {
-  const bg = settings.background;
+/** #rrggbb + 불투명도 → rgba() (그림자 색) */
+function hexAlpha(hex: string, alpha: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+/** 배경 한 판. 결과물 배경과 글 상자 배경이 같이 쓴다 */
+function backgroundLayer(bg: Background): ReactNode {
   const spread = bg.blur > 0 ? -(bg.blur * 2 + 8) : 0;
   const base: CSSProperties = {
     position: 'absolute',
@@ -492,6 +500,15 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
     color: roles.narration,
   };
 
+  const box = settings.textBox;
+  const boxStyle: CSSProperties = {
+    padding: `${box.padY}px ${box.padX}px`,
+    borderRadius: `${box.radius}px`,
+    boxShadow: box.shadow.enabled
+      ? `0 ${box.shadow.distance}px ${box.shadow.blur}px ${hexAlpha(box.shadow.color, box.shadow.opacity)}`
+      : undefined,
+  };
+
   // 장평: 넓은 폭으로 줄바꿈을 계산한 뒤 가로로 눌러 실제 폭에 맞춘다.
   const scaleStyle: CSSProperties = scale === 1
     ? {}
@@ -511,7 +528,7 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
       style={frameStyle}
     >
       {css ? <style>{css}</style> : null}
-      {backgroundLayer(settings)}
+      {backgroundLayer(settings.background)}
       {canAdjust ? (
         <div
           className="bg-drag"
@@ -600,7 +617,19 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
         {/* 왼쪽·오른쪽 슬롯이 본문과 한 줄에 서도록 가로로 묶는다 */}
         <div className="te-middle">
           {renderSlot('left')}
-          <div className="te-main">
+          <div
+            className={box.enabled ? 'te-main te-box' : 'te-main'}
+            style={box.enabled ? boxStyle : undefined}
+          >
+            {box.enabled ? (
+              <>
+                {/* 배경은 상자 모양으로 잘라 내고, 그림자는 잘리지 않게 상자 자체에 준다 */}
+                <div className="te-box-bg" style={{ borderRadius: `${box.radius}px`, opacity: box.opacity }}>
+                  {backgroundLayer(box.background)}
+                </div>
+                <PageBorder border={{ ...box.border, inset: 0 }} radius={box.radius} />
+              </>
+            ) : null}
             {/* 제목·제작자도 장평과 본문 서식을 함께 받도록 같은 래퍼 안에 둔다 */}
             <div className="te-scale" style={scaleStyle}>
               <div className="te-type" style={typeStyle}>

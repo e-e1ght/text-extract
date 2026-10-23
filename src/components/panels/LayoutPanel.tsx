@@ -5,6 +5,7 @@ import { ButtonGroup, ColorField, Field, Hint, NumberSlider, Select, Toggle } fr
 import { SPLIT_RATIOS } from '../../lib/split';
 import { usePagePlan } from '../PageGuides';
 import { BorderStylePicker } from '../PageBorder';
+import { BackgroundFields } from './BackgroundFields';
 import type { AlignY, SplitRatio } from '../../types';
 
 export function LayoutPanel({ captureNode }: { captureNode: HTMLElement | null }) {
@@ -18,6 +19,11 @@ export function LayoutPanel({ captureNode }: { captureNode: HTMLElement | null }
   const border = layout.border;
   const setBorder = (change: Partial<typeof border>) => patch('layout', { border: { ...border, ...change } });
   const activeRatio = RATIO_PRESETS.find((r) => r.w === layout.ratioW && r.h === layout.ratioH);
+
+  const box = settings.textBox;
+  const setBox = (change: Partial<typeof box>) => patch('textBox', change);
+  const setBoxBorder = (change: Partial<typeof box.border>) => setBox({ border: { ...box.border, ...change } });
+  const setBoxShadow = (change: Partial<typeof box.shadow>) => setBox({ shadow: { ...box.shadow, ...change } });
 
   const setAllPadding = (value: number) =>
     patch('layout', { padTop: value, padRight: value, padBottom: value, padLeft: value });
@@ -143,6 +149,66 @@ export function LayoutPanel({ captureNode }: { captureNode: HTMLElement | null }
         onChange={(padRight) => patch('layout', { padRight })} />
       <NumberSlider label="모서리 둥글기" value={layout.radius} min={0} max={64}
         onChange={(radius) => patch('layout', { radius })} />
+
+      <hr className="divider" />
+
+      {/* 여백 안쪽, 글이 놓이는 칸 */}
+      <div className="panel-head"><span>글 상자</span></div>
+      <Toggle
+        label="글 상자 꾸미기"
+        checked={box.enabled}
+        onChange={(enabled) => setBox({ enabled })}
+        hint="여백 안쪽 글 칸에 배경·외곽선·그림자를 넣습니다"
+      />
+      {box.enabled ? (
+        <>
+          <NumberSlider label="상자 안쪽 가로 여백" value={box.padX} min={0} max={120}
+            onChange={(padX) => setBox({ padX })} />
+          <NumberSlider label="상자 안쪽 세로 여백" value={box.padY} min={0} max={120}
+            onChange={(padY) => setBox({ padY })} />
+          <NumberSlider label="상자 모서리 둥글기" value={box.radius} min={0} max={64}
+            onChange={(radius) => setBox({ radius })} />
+
+          <div className="panel-subhead">배경</div>
+          <BackgroundFields
+            bg={box.background}
+            onChange={(change) => setBox({ background: { ...box.background, ...change } })}
+          />
+          <NumberSlider label="배경 불투명도" value={Math.round(box.opacity * 100)} min={0} max={100} unit="%"
+            hint="낮추면 결과물 배경이 비칩니다"
+            onChange={(value) => setBox({ opacity: value / 100 })} />
+
+          <div className="panel-subhead">외곽선</div>
+          <Toggle label="외곽선 두르기" checked={box.border.enabled}
+            onChange={(enabled) => setBoxBorder({ enabled })} />
+          {box.border.enabled ? (
+            <>
+              <BorderStylePicker value={box.border.style} onChange={(style) => setBoxBorder({ style })} />
+              <ColorField label="외곽선 색" value={box.border.color} onChange={(color) => setBoxBorder({ color })} />
+              <NumberSlider label="외곽선 불투명도" value={Math.round(box.border.opacity * 100)} min={0} max={100} unit="%"
+                onChange={(value) => setBoxBorder({ opacity: value / 100 })} />
+              <NumberSlider label="외곽선 굵기" value={box.border.width} min={0.5} max={16} step={0.5}
+                onChange={(width) => setBoxBorder({ width })} />
+            </>
+          ) : null}
+
+          <div className="panel-subhead">그림자</div>
+          <Toggle label="그림자 넣기" checked={box.shadow.enabled}
+            onChange={(enabled) => setBoxShadow({ enabled })} />
+          {box.shadow.enabled ? (
+            <>
+              <ColorField label="그림자 색" value={box.shadow.color} onChange={(color) => setBoxShadow({ color })} />
+              <NumberSlider label="그림자 불투명도" value={Math.round(box.shadow.opacity * 100)} min={0} max={100} unit="%"
+                onChange={(value) => setBoxShadow({ opacity: value / 100 })} />
+              <NumberSlider label="그림자 퍼짐" value={box.shadow.blur} min={0} max={80}
+                onChange={(blur) => setBoxShadow({ blur })} />
+              <NumberSlider label="그림자 거리" value={box.shadow.distance} min={0} max={40}
+                hint="아래로 밀리는 거리"
+                onChange={(distance) => setBoxShadow({ distance })} />
+            </>
+          ) : null}
+        </>
+      ) : null}
 
       <hr className="divider" />
 

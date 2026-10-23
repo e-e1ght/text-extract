@@ -78,6 +78,31 @@ export interface Background {
   blur: number;
 }
 
+/**
+ * 글 상자 — 여백 안쪽, 글(제목·본문·제작자)이 놓이는 칸을 꾸민다.
+ * 배경은 결과물 배경과 같은 종류를 그대로 쓴다 (오버레이·흐림은 쓰지 않는다).
+ */
+export interface TextBox {
+  enabled: boolean;
+  /** 상자 안쪽 여백 (px) — 글이 상자 가장자리에 붙지 않게 */
+  padX: number;
+  padY: number;
+  radius: number;
+  background: Background;
+  /** 배경 불투명도 0~1 — 낮추면 결과물 배경이 비친다 */
+  opacity: number;
+  /** 외곽선. 페이지 테두리와 같은 부품으로 긋는다 (inset 은 0) */
+  border: PageBorder;
+  shadow: {
+    enabled: boolean;
+    color: string;
+    opacity: number;
+    blur: number;
+    /** 아래로 밀리는 거리 (px) */
+    distance: number;
+  };
+}
+
 export type RatioMode = 'auto' | 'fixed';
 
 export interface Layout {
@@ -272,6 +297,7 @@ export interface Settings {
   customFonts: CustomFont[];
   stickers: Sticker[];
   imageSlots: ImageSlots;
+  textBox: TextBox;
   /** 미리보기 확대 배율 (결과물 크기와는 무관) */
   previewZoom: number;
   exportOptions: ExportOptions;
