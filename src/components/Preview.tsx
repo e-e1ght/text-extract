@@ -143,6 +143,7 @@ function backgroundLayer(settings: Settings): ReactNode {
             scale={bg.patternScale}
             color={bg.patternColor}
             color2={bg.patternColor2}
+            background={bg.color}
             angle={bg.patternAngle}
             opacity={bg.patternOpacity}
             gap={bg.patternGap}

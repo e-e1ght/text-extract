@@ -22,7 +22,7 @@ const PATTERNS: Array<{ label: string; value: PatternKind; previewScale: number 
   { label: '별', value: 'stars', previewScale: 22 },
   { label: '물방울', value: 'bubbles', previewScale: 22 },
   { label: '타탄', value: 'plaid', previewScale: 35 },
-  { label: '물결 칸', value: 'cells', previewScale: 25 },
+  { label: '동그라미', value: 'rounds', previewScale: 25 },
 ];
 
 export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
@@ -159,6 +159,7 @@ export function BackgroundPanel({ editorRoot }: { editorRoot: HTMLElement | null
                       scale={pattern.previewScale}
                       color={bg.patternColor}
                       color2={bg.patternColor2}
+                      background={bg.color}
                       angle={bg.patternAngle}
                       opacity={bg.patternOpacity}
                     />

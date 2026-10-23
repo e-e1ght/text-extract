@@ -346,109 +346,79 @@ export function plaidStripes(spread: number): { tile: number; stripes: PlaidStri
 }
 
 /* ------------------------------------------------------------------ */
-/* 물결 칸 — 둥근 칸이 굵은 선 사이로 물결치듯 늘어선 무늬               */
+/* 동그라미 — 손으로 오린 듯한 큰 원을 맞닿게 늘어놓은 무늬              */
 /* ------------------------------------------------------------------ */
 
-/** 한 변의 칸 수와 칸 한 변 (간격 100% 일 때, 타일 좌표) */
-const CELL_COUNT = 8;
-const CELL_SIZE = 60;
-/** 칸 사이 선 굵기 (간격 100% 일 때). 이 무늬의 '사이' 는 선이라, 간격을 벌리면 칸은 두고 선이 굵어진다 */
-const CELL_LINE = 7;
+/** 한 변의 원 개수와 원 사이 거리 (간격 100% 일 때, 타일 좌표) */
+const ROUND_COUNT = 6;
+const ROUND_PITCH = 100;
+/**
+ * 원 반지름 — 거리의 절반보다 살짝 커서 이웃 원과 맞닿는다. 그래야 사이에 남는 자리가
+ * 따로 떨어진 네 꼭지 별이 된다 (레퍼런스처럼). 간격을 벌려도 그대로다.
+ */
+const ROUND_R = 50.5;
 
-type Pt = [number, number];
-
-/** 두 직선(점 + 방향)의 교점 */
-function intersect(p: Pt, d: Pt, q: Pt, e: Pt): Pt {
-  const det = d[0] * e[1] - d[1] * e[0];
-  if (Math.abs(det) < 1e-9) return p;
-  const t = ((q[0] - p[0]) * e[1] - (q[1] - p[1]) * e[0]) / det;
-  return [p[0] + d[0] * t, p[1] + d[1] * t];
-}
-
-/** 볼록 사각형을 변마다 h 만큼 안으로 민다 (선 굵기의 절반) */
-function inset(quad: Pt[], h: number): Pt[] {
-  const n = quad.length;
-  const lines = quad.map((a, i) => {
-    const b = quad[(i + 1) % n];
-    const dx = b[0] - a[0];
-    const dy = b[1] - a[1];
-    const len = Math.hypot(dx, dy) || 1;
-    // 시계 방향(화면 좌표) 사각형의 안쪽 법선
-    const nx = -dy / len;
-    const ny = dx / len;
-    return { p: [a[0] + nx * h, a[1] + ny * h] as Pt, d: [dx, dy] as Pt };
-  });
-  return lines.map((line, i) => {
-    const prev = lines[(i + n - 1) % n];
-    return intersect(prev.p, prev.d, line.p, line.d);
-  });
-}
-
-/** 모서리를 둥글린 닫힌 경로 — 변의 35% 까지 깎아 레퍼런스처럼 몽글한 칸이 되게 */
-function roundedPath(pts: Pt[]): string {
-  const n = pts.length;
-  const cut = (a: Pt, b: Pt, t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-  let d = '';
+/**
+ * 원 하나. 둘레를 몇 개의 사인 물결로 살짝 일그러뜨려 손으로 오린 느낌을 낸다.
+ * 점을 이은 뒤 Catmull-Rom 곡선으로 매끈하게 잇는다 (꺾인 자국이 보이지 않게).
+ */
+function wobblyCircle(cx: number, cy: number, r: number, rand: () => number): string {
+  const n = 28;
+  // 너무 크게 일그러뜨리면 원이 아니라 덩어리로 보인다 — 반지름의 1~2% 정도만
+  const waves = [2, 3, 5].map((k) => ({ k, amp: (0.005 + rand() * 0.009) * r, phase: rand() * Math.PI * 2 }));
+  const pts: Pt[] = [];
   for (let i = 0; i < n; i += 1) {
-    const prev = pts[(i + n - 1) % n];
-    const cur = pts[i];
-    const next = pts[(i + 1) % n];
-    const from = cut(cur, prev, 0.35);
-    const to = cut(cur, next, 0.35);
-    d += `${i === 0 ? 'M' : 'L'}${f1(from[0])} ${f1(from[1])}Q${f1(cur[0])} ${f1(cur[1])} ${f1(to[0])} ${f1(to[1])}`;
+    const t = (i / n) * Math.PI * 2;
+    const rr = r + waves.reduce((sum, w) => sum + w.amp * Math.sin(w.k * t + w.phase), 0);
+    pts.push([cx + rr * Math.cos(t), cy + rr * Math.sin(t)]);
+  }
+  let d = `M${f1(pts[0][0])} ${f1(pts[0][1])}`;
+  for (let i = 0; i < n; i += 1) {
+    const p0 = pts[(i + n - 1) % n];
+    const p1 = pts[i];
+    const p2 = pts[(i + 1) % n];
+    const p3 = pts[(i + 2) % n];
+    const c1: Pt = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2: Pt = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += `C${f1(c1[0])} ${f1(c1[1])} ${f1(c2[0])} ${f1(c2[1])} ${f1(p2[0])} ${f1(p2[1])}`;
   }
   return `${d}Z`;
 }
 
-const cellCache = new Map<number, { tile: number; d: string }>();
+type Pt = [number, number];
+
+const roundCache = new Map<number, { tile: number; d: string }>();
 
 /**
- * 물결 칸 한 타일. 타일 전체를 칠하고 칸 자리를 구멍으로 뚫는다 (evenodd) —
- * 남은 부분이 칸 사이의 굵은 선이 된다.
- *
- * 격자점을 사인 물결 + 약간의 흔들림으로 옮겨 칸 모양이 제각각이 되게 한다.
- * 물결의 주기는 타일 안에 정수 번 들어가고, 흔들림은 격자 번호로 되풀이되어 이음매가 맞는다.
+ * 동그라미 한 타일의 원들. 그리는 쪽은 타일을 무늬 색으로 칠하고 그 위에 원을 바탕색으로 덮는다 —
+ * 원 네 개 사이에 남은 자리가 네 꼭지 별처럼 보인다.
+ * (구멍을 뚫는 evenodd 는 원끼리 겹친 자리가 다시 칠해져 원 사이에 실금이 생겼다.)
+ * 간격을 벌리면 원은 그대로 두고 원 사이 거리만 넓어져 별이 굵어진다.
  */
-export function cellField(spread = 1): { tile: number; d: string } {
-  const line = Math.round(CELL_LINE * spread * 10) / 10;
-  const hit = cellCache.get(line);
+export function roundField(spread = 1): { tile: number; d: string } {
+  const pitch = Math.round(ROUND_PITCH * spread);
+  const hit = roundCache.get(pitch);
   if (hit) return hit;
-  const size = CELL_SIZE;
-  const tile = size * CELL_COUNT;
+  const tile = pitch * ROUND_COUNT;
   const rand = mulberry32(20261023);
-  const jitter: Pt[] = [];
-  for (let i = 0; i < CELL_COUNT * CELL_COUNT; i += 1) {
-    jitter.push([(rand() - 0.5) * 0.18, (rand() - 0.5) * 0.18]);
-  }
-  const TAU = Math.PI * 2;
-  const point = (i: number, j: number): Pt => {
-    const u = i / CELL_COUNT;
-    const v = j / CELL_COUNT;
-    const [jx, jy] = jitter[(((j % CELL_COUNT) + CELL_COUNT) % CELL_COUNT) * CELL_COUNT
-      + (((i % CELL_COUNT) + CELL_COUNT) % CELL_COUNT)];
-    // 너무 크게 흔들면 칸이 뾰족한 세모로 찌그러진다
-    const dx = 0.17 * Math.sin(TAU * (v * 2 + u)) + 0.08 * Math.sin(TAU * (u * 3 - v)) + jx;
-    const dy = 0.17 * Math.sin(TAU * (u * 2 - v)) + 0.08 * Math.sin(TAU * (v * 3 + u)) + jy;
-    return [(i + dx) * size, (j + dy) * size];
-  };
-
-  let d = `M0 0H${tile}V${tile}H0Z`;
-  // 가장자리 칸은 맞은편에서 넘어온 칸이 메우도록 한 줄씩 더 돈다
-  for (let j = -1; j <= CELL_COUNT; j += 1) {
-    for (let i = -1; i <= CELL_COUNT; i += 1) {
-      const quad = [point(i, j), point(i + 1, j), point(i + 1, j + 1), point(i, j + 1)];
-      const xs = quad.map((p) => p[0]);
-      const ys = quad.map((p) => p[1]);
-      if (Math.max(...xs) < 0 || Math.min(...xs) > tile || Math.max(...ys) < 0 || Math.min(...ys) > tile) continue;
-      d += roundedPath(inset(quad, line / 2));
+  let d = '';
+  for (let j = 0; j < ROUND_COUNT; j += 1) {
+    for (let i = 0; i < ROUND_COUNT; i += 1) {
+      const x = (i + 0.5) * pitch;
+      const y = (j + 0.5) * pitch;
+      // 원마다 일그러짐이 달라야 손맛이 난다. 같은 원은 타일 가장자리 너머에도 똑같이 그린다
+      const seed = Math.floor(rand() * 4294967296);
+      for (const [dx, dy] of wrapOffsets(x, y, ROUND_R * 1.1, tile)) {
+        d += wobblyCircle(x + dx, y + dy, ROUND_R, mulberry32(seed));
+      }
     }
   }
   const field = { tile, d };
-  cellCache.set(line, field);
+  roundCache.set(pitch, field);
   return field;
 }
 
 /** 무늬마다 100% 일 때 한 칸의 크기 (화면 px) */
 export const PATTERN_BASE = {
-  dots: 22, check: 48, stars: 760, bubbles: 760, plaid: 120, cells: 360,
+  dots: 22, check: 48, stars: 760, bubbles: 760, plaid: 120, rounds: 360,
 } as const;

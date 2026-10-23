@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { ASCII_FONT, ASCII_LINE_HEIGHT, imageToAscii, loadImage } from '../lib/ascii';
 import {
-  PATTERN_BASE, PLAID_TILE, STAR_TILE, cellField, plaidStripes, shapeField,
+  PATTERN_BASE, PLAID_TILE, STAR_TILE, plaidStripes, roundField, shapeField,
 } from '../lib/patterns';
 import type { PatternKind } from '../types';
 
@@ -12,6 +12,8 @@ interface PatternProps {
   color: string;
   /** 둘째 색 — 타탄 체크만 쓴다 */
   color2?: string;
+  /** 바탕색 — 동그라미는 무늬 색 판 위에 원을 바탕색으로 덮어 그린다 */
+  background?: string;
   angle: number;
   opacity: number;
   /** 무늬 사이 간격 (%). 무늬 하나하나의 크기는 그대로 두고 사이만 벌린다 */
@@ -21,8 +23,8 @@ interface PatternProps {
 /** 간격을 다루지 않는 무늬 — 바둑판은 칸끼리 맞닿아 있어 벌릴 사이가 없다 */
 export const PATTERN_NO_GAP: PatternKind[] = ['check'];
 
-/** 물결 칸의 타일 — 간격은 선 굵기라 타일 크기는 늘 같다 */
-const CELL_TILE = cellField(1).tile;
+/** 동그라미 100% 일 때의 타일 — 간격을 벌려도 원 크기 배율은 이것 기준 */
+const ROUND_TILE = roundField(1).tile;
 
 /**
  * 별·물방울은 간격마다 다시 계산하므로(수백 ms) 25% 단위로 묶는다.
@@ -31,7 +33,7 @@ const CELL_TILE = cellField(1).tile;
 const starSpread = (gap: number) => Math.max(1, Math.round(gap / 25) * 25) / 100;
 
 /** 무늬 한 칸의 크기(타일 좌표)와 내용 */
-function tileOf(kind: PatternKind, gap: number, color2: string): { size: number; body: ReactNode } {
+function tileOf(kind: PatternKind, gap: number, color2: string, background: string): { size: number; body: ReactNode } {
   const spread = Math.max(1, gap / 100);
   if (kind === 'dots') {
     // 땡땡이 — 엇갈려 놓아야 줄무늬처럼 보이지 않는다. 점 크기는 간격과 무관하다
@@ -79,9 +81,17 @@ function tileOf(kind: PatternKind, gap: number, color2: string): { size: number;
       ),
     };
   }
-  if (kind === 'cells') {
-    const field = cellField(spread);
-    return { size: field.tile, body: <path d={field.d} fillRule="evenodd" /> };
+  if (kind === 'rounds') {
+    const field = roundField(spread);
+    return {
+      size: field.tile,
+      body: (
+        <>
+          <rect width={field.tile} height={field.tile} />
+          <path d={field.d} fill={background} />
+        </>
+      ),
+    };
   }
   // 별과 물방울은 같은 계산기로 꼴만 바꿔 만든다
   const field = shapeField(kind === 'bubbles' ? 'circle' : 'star', starSpread(gap));
@@ -104,7 +114,7 @@ function tileOf(kind: PatternKind, gap: number, color2: string): { size: number;
 function unitScale(kind: PatternKind): number {
   if (kind === 'stars' || kind === 'bubbles') return PATTERN_BASE[kind] / STAR_TILE;
   if (kind === 'plaid') return PATTERN_BASE.plaid / PLAID_TILE;
-  if (kind === 'cells') return PATTERN_BASE.cells / CELL_TILE;
+  if (kind === 'rounds') return PATTERN_BASE.rounds / ROUND_TILE;
   return 1;
 }
 
@@ -114,12 +124,12 @@ function unitScale(kind: PatternKind): number {
  * 돌린 뒤 모서리가 비지 않는다.
  */
 export function PatternFill({
-  kind, scale, color, color2 = color, angle, opacity, gap = 100,
+  kind, scale, color, color2 = color, background = 'transparent', angle, opacity, gap = 100,
 }: PatternProps) {
   const id = `te-pat-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const { size, body } = useMemo(
-    () => tileOf(kind, PATTERN_NO_GAP.includes(kind) ? 100 : gap, color2),
-    [kind, gap, color2],
+    () => tileOf(kind, PATTERN_NO_GAP.includes(kind) ? 100 : gap, color2, background),
+    [kind, gap, color2, background],
   );
   const k = (unitScale(kind) * scale) / 100;
   return (

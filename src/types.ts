@@ -34,7 +34,7 @@ export interface RoleColors {
 
 export type BackgroundType = 'solid' | 'gradient' | 'image' | 'pattern' | 'ascii';
 
-export type PatternKind = 'dots' | 'check' | 'stars' | 'bubbles' | 'plaid' | 'cells';
+export type PatternKind = 'dots' | 'check' | 'stars' | 'bubbles' | 'plaid' | 'rounds';
 
 export interface Background {
   type: BackgroundType;
