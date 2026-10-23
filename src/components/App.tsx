@@ -157,7 +157,7 @@ export function App() {
       data-app-theme={settings.appTheme}
     >
       <header className="topbar">
-        <span className="brand">텍스트 발췌기</span>
+        <span className="brand">E8 발췌기</span>
 
         <div className="topbar-right">
           <span className="topbar-hint">미리보기에 바로 입력하세요</span>
